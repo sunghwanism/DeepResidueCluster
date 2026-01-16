@@ -2,22 +2,26 @@ import numpy as np
 import scipy.sparse as sp
 import torch
 import torch.nn as nn
-
+import yaml
+import os
 from models import DGI, LogReg
 from utils import process
 
-dataset = 'cora'
+# Load config
+config_path = os.path.join(os.path.dirname(__file__), '../../config/DGI.yaml')
+with open(config_path, 'r') as f:
+    config = yaml.safe_load(f)
 
-# training params
-batch_size = 1
-nb_epochs = 10000
-patience = 20
-lr = 0.001
-l2_coef = 0.0
-drop_prob = 0.0
-hid_units = 512
-sparse = True
-nonlinearity = 'prelu' # special name to separate parameters
+dataset = config['dataset']
+batch_size = config['batch_size']
+nb_epochs = config['nb_epochs']
+patience = config['patience']
+lr = config['lr']
+l2_coef = config['l2_coef']
+drop_prob = config['drop_prob']
+hid_units = config['hid_units']
+sparse = config['sparse']
+nonlinearity = config['nonlinearity']
 
 adj, features, labels, idx_train, idx_val, idx_test = process.load_data(dataset)
 features, _ = process.preprocess_features(features)
@@ -26,20 +30,28 @@ nb_nodes = features.shape[0]
 ft_size = features.shape[1]
 nb_classes = labels.shape[1]
 
-adj = process.normalize_adj(adj + sp.eye(adj.shape[0]))
-
-if sparse:
-    sp_adj = process.sparse_mx_to_torch_sparse_tensor(adj)
-else:
-    adj = (adj + sp.eye(adj.shape[0])).todense()
-
+# Convert features to tensor
 features = torch.FloatTensor(features[np.newaxis])
-if not sparse:
-    adj = torch.FloatTensor(adj[np.newaxis])
-labels = torch.FloatTensor(labels[np.newaxis])
+features = features.squeeze(0) # (N, F)
+
+labels = torch.FloatTensor(labels[np.newaxis]).squeeze(0)
 idx_train = torch.LongTensor(idx_train)
 idx_val = torch.LongTensor(idx_val)
 idx_test = torch.LongTensor(idx_test)
+
+# Convert adj to edge_index for PyG
+adj = process.normalize_adj(adj + sp.eye(adj.shape[0]))
+if sp.isspmatrix(adj):
+    adj = adj.tocoo()
+    row = torch.from_numpy(adj.row.astype(np.int64))
+    col = torch.from_numpy(adj.col.astype(np.int64))
+    edge_index = torch.stack([row, col], dim=0)
+else:
+    # If dense
+    adj = sp.coo_matrix(adj)
+    row = torch.from_numpy(adj.row.astype(np.int64))
+    col = torch.from_numpy(adj.col.astype(np.int64))
+    edge_index = torch.stack([row, col], dim=0)
 
 model = DGI(ft_size, hid_units, nonlinearity)
 optimiser = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=l2_coef)
@@ -48,10 +60,7 @@ if torch.cuda.is_available():
     print('Using CUDA')
     model.cuda()
     features = features.cuda()
-    if sparse:
-        sp_adj = sp_adj.cuda()
-    else:
-        adj = adj.cuda()
+    edge_index = edge_index.cuda()
     labels = labels.cuda()
     idx_train = idx_train.cuda()
     idx_val = idx_val.cuda()
@@ -68,17 +77,19 @@ for epoch in range(nb_epochs):
     optimiser.zero_grad()
 
     idx = np.random.permutation(nb_nodes)
-    shuf_fts = features[:, idx, :]
+    shuf_fts = features[idx, :]
 
-    lbl_1 = torch.ones(batch_size, nb_nodes)
-    lbl_2 = torch.zeros(batch_size, nb_nodes)
-    lbl = torch.cat((lbl_1, lbl_2), 1)
+    # Labels: 1 for real, 0 for fake
+    lbl_1 = torch.ones(nb_nodes, 1)
+    lbl_2 = torch.zeros(nb_nodes, 1)
+    lbl = torch.cat((lbl_1, lbl_2), 0)
 
     if torch.cuda.is_available():
         shuf_fts = shuf_fts.cuda()
         lbl = lbl.cuda()
     
-    logits = model(features, shuf_fts, sp_adj if sparse else adj, sparse, None, None, None) 
+    # logits shape: (2*N, 1)
+    logits = model(features, shuf_fts, edge_index, None, None, None) 
 
     loss = b_xent(logits, lbl)
 
@@ -102,28 +113,33 @@ for epoch in range(nb_epochs):
 print('Loading {}th epoch'.format(best_t))
 model.load_state_dict(torch.load('best_dgi.pkl'))
 
-embeds, _ = model.embed(features, sp_adj if sparse else adj, sparse, None)
-train_embs = embeds[0, idx_train]
-val_embs = embeds[0, idx_val]
-test_embs = embeds[0, idx_test]
+embeds, _ = model.embed(features, edge_index, None)
+train_embs = embeds[idx_train]
+val_embs = embeds[idx_val]
+test_embs = embeds[idx_test]
 
-train_lbls = torch.argmax(labels[0, idx_train], dim=1)
-val_lbls = torch.argmax(labels[0, idx_val], dim=1)
-test_lbls = torch.argmax(labels[0, idx_test], dim=1)
+train_lbls = torch.argmax(labels[idx_train], dim=1)
+val_lbls = torch.argmax(labels[idx_val], dim=1)
+test_lbls = torch.argmax(labels[idx_test], dim=1)
 
 tot = torch.zeros(1)
-tot = tot.cuda()
+if torch.cuda.is_available():
+    tot = tot.cuda()
 
 accs = []
 
 for _ in range(50):
     log = LogReg(hid_units, nb_classes)
     opt = torch.optim.Adam(log.parameters(), lr=0.01, weight_decay=0.0)
-    log.cuda()
+    if torch.cuda.is_available():
+        log.cuda()
 
     pat_steps = 0
     best_acc = torch.zeros(1)
-    best_acc = best_acc.cuda()
+    if torch.cuda.is_available():
+        best_acc = best_acc.cuda()
+    
+    # Train logistic regression
     for _ in range(100):
         log.train()
         opt.zero_grad()
@@ -146,4 +162,3 @@ print('Average accuracy:', tot / 50)
 accs = torch.stack(accs)
 print(accs.mean())
 print(accs.std())
-
