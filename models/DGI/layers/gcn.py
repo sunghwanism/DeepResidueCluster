@@ -1,27 +1,20 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import SAGEConv
+
+from utils.activation import getActivation
 
 class DenseGCN(nn.Module):
     def __init__(self, in_ft, out_ft, activation):
         super(DenseGCN, self).__init__()
-        self.act = activation
-        
-        # Projection for skip connections
         self.proj = nn.Linear(in_ft, out_ft)
-        
-        # Layer 1
-        self.conv1 = GCNConv(in_ft, out_ft)
-        
-        # Layer 2: Input is concatenation of projected X (out_ft) and H1 (out_ft)
-        self.conv2 = GCNConv(out_ft + out_ft, out_ft)
-        
-        # Layer 3: Input is concatenation of projected X (out_ft), H1 (out_ft), and H2 (out_ft)
-        self.conv3 = GCNConv(out_ft + 2 * out_ft, out_ft)
+        self.conv1 = SAGEConv(in_ft, out_ft, aggr='mean')
+        self.conv2 = SAGEConv(out_ft + out_ft, out_ft, aggr='mean')
+        self.conv3 = SAGEConv(out_ft + 2 * out_ft, out_ft, aggr='mean')
+
+        self.act = getActivation(activation)
 
     def forward(self, x, edge_index):
-        # Projected input for skip connections
         x_p = self.act(self.proj(x))
         
         # Layer 1
