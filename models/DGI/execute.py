@@ -75,12 +75,12 @@ def extract_embeddings(model, loader, device):
     return embeddings, labels
 
 
-def run_training(config, train_loader, val_loader, test_loader):
+def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
     # Use config object (Namespace)
     # config is already a Namespace-like object (argparse.Namespace)
     
     batch_size = config.batch_size
-    nb_epochs = config.nb_epochs
+    nb_epochs = config.epoch
     patience = config.patience
     lr = config.lr
     l2_coef = config.l2_coef
@@ -88,7 +88,9 @@ def run_training(config, train_loader, val_loader, test_loader):
     nonlinearity = config.nonlinearity
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print("============================"*2)
     print(f'Using device: {device}')
+    print("============================"*2)
     
     # Check if loaders are provided
     if not train_loader:
@@ -97,8 +99,11 @@ def run_training(config, train_loader, val_loader, test_loader):
     # Get feature size from first batch
     first_batch = next(iter(train_loader))
     ft_size = first_batch.x.size(1)
-    
-    print(f"\nFeature dimension: {ft_size}")
+
+    for key, values in first_batch.items():
+        print(key, ':', values.shape)
+    print("============================"*2)
+    print(f"Feature dimension: {ft_size}")
     print(f"Hidden units: {hid_units}")
     
     # Initialize model
@@ -107,15 +112,21 @@ def run_training(config, train_loader, val_loader, test_loader):
     criterion = nn.BCEWithLogitsLoss()
     
     # Training loop
-    print("\n" + "="*60)
+    print("============================"*2)
     print("TRAINING DGI")
-    print("="*60)
+    print("============================"*2)
     
     best_loss = float('inf')
     best_epoch = 0
     cnt_wait = 0
     
-    save_path = 'best_dgi_inductive.pkl' # Could be parameterized
+    if run_wandb:
+        BASESAVEPATH = os.path.join(config.SAVEPATH, config.model, run_wandb.id)
+    else:
+        BASESAVEPATH = os.path.join(config.SAVEPATH, config.model)
+    
+    os.makedirs(BASESAVEPATH, exist_ok=True)
+    save_path = os.path.join(BASESAVEPATH, 'BestPerformance.pkl')
     
     for epoch in range(nb_epochs):
         train_loss = train_dgi_epoch(model, train_loader, optimizer, criterion, device)
@@ -144,76 +155,76 @@ def run_training(config, train_loader, val_loader, test_loader):
             print(f'Epoch {epoch:4d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}')
         
         # Early stopping based on validation loss
-        if val_loss < best_loss:
-            best_loss = val_loss
-            best_epoch = epoch
-            cnt_wait = 0
-            torch.save(model.state_dict(), save_path)
-        else:
-            cnt_wait += 1
+        # if val_loss < best_loss:
+        #     best_loss = val_loss
+        #     best_epoch = epoch
+        #     cnt_wait = 0
+        #     torch.save(model.state_dict(), save_path)
+        # else:
+        #     cnt_wait += 1
         
-        if cnt_wait >= patience:
-            print(f'\nEarly stopping at epoch {epoch}')
-            break
+        # if cnt_wait >= patience:
+        #     print(f'\nEarly stopping at epoch {epoch}')
+        #     break
     
     print(f'\nBest epoch: {best_epoch}, Best val loss: {best_loss:.4f}')
     
     # Load best model
-    print("\n" + "="*60)
-    print("EXTRACTING EMBEDDINGS")
-    print("="*60)
+    # print("\n" + "="*60)
+    # print("EXTRACTING EMBEDDINGS")
+    # print("="*60)
     
-    if os.path.exists(save_path):
-        model.load_state_dict(torch.load(save_path))
-    else:
-        print("Warning: Best model file not found, using current model state.")
+    # if os.path.exists(save_path):
+    #     model.load_state_dict(torch.load(save_path))
+    # else:
+    #     print("Warning: Best model file not found, using current model state.")
     
-    # Extract embeddings for all sets
-    train_embeds, train_labels = extract_embeddings(model, train_loader, device)
-    val_embeds, val_labels = extract_embeddings(model, val_loader, device)
-    test_embeds, test_labels = extract_embeddings(model, test_loader, device)
+    # # Extract embeddings for all sets
+    # train_embeds, train_labels = extract_embeddings(model, train_loader, device)
+    # val_embeds, val_labels = extract_embeddings(model, val_loader, device)
+    # test_embeds, test_labels = extract_embeddings(model, test_loader, device)
     
-    print(f"Train embeddings shape: {train_embeds.shape}")
-    print(f"Val embeddings shape: {val_embeds.shape}")
-    print(f"Test embeddings shape: {test_embeds.shape}")
+    # print(f"Train embeddings shape: {train_embeds.shape}")
+    # print(f"Val embeddings shape: {val_embeds.shape}")
+    # print(f"Test embeddings shape: {test_embeds.shape}")
     
-    # Evaluate with logistic regression (if labels available)
-    if train_labels is not None and test_labels is not None:
-        print("\n" + "="*60)
-        print("DOWNSTREAM EVALUATION")
-        print("="*60)
+    # # Evaluate with logistic regression (if labels available)
+    # if train_labels is not None and test_labels is not None:
+    #     print("\n" + "="*60)
+    #     print("DOWNSTREAM EVALUATION")
+    #     print("="*60)
         
-        nb_classes = int(train_labels.max().item()) + 1
-        xent = nn.CrossEntropyLoss()
+    #     nb_classes = int(train_labels.max().item()) + 1
+    #     xent = nn.CrossEntropyLoss()
         
-        accs = []
-        for run in range(10):
-            log = LogReg(hid_units, nb_classes).to(device)
-            opt = torch.optim.Adam(log.parameters(), lr=0.01, weight_decay=0.0)
+    #     accs = []
+    #     for run in range(10):
+    #         log = LogReg(hid_units, nb_classes).to(device)
+    #         opt = torch.optim.Adam(log.parameters(), lr=0.01, weight_decay=0.0)
             
-            # Train
-            for _ in range(200):
-                log.train()
-                opt.zero_grad()
-                logits = log(train_embeds)
-                loss = xent(logits, train_labels)
-                loss.backward()
-                opt.step()
+    #         # Train
+    #         for _ in range(200):
+    #             log.train()
+    #             opt.zero_grad()
+    #             logits = log(train_embeds)
+    #             loss = xent(logits, train_labels)
+    #             loss.backward()
+    #             opt.step()
             
-            # Test
-            log.eval()
-            with torch.no_grad():
-                logits = log(test_embeds)
-                preds = torch.argmax(logits, dim=1)
-                acc = (preds == test_labels).float().mean().item()
-                accs.append(acc * 100)
+    #         # Test
+    #         log.eval()
+    #         with torch.no_grad():
+    #             logits = log(test_embeds)
+    #             preds = torch.argmax(logits, dim=1)
+    #             acc = (preds == test_labels).float().mean().item()
+    #             accs.append(acc * 100)
         
-        accs = np.array(accs)
-        print(f"Test Accuracy: {accs.mean():.2f}% ± {accs.std():.2f}%")
+    #     accs = np.array(accs)
+    #     print(f"Test Accuracy: {accs.mean():.2f}% ± {accs.std():.2f}%")
     
-    print("\n" + "="*60)
-    print("DONE!")
-    print("="*60)
+    # print("\n" + "="*60)
+    # print("DONE!")
+    # print("="*60)
 
 
 if __name__ == '__main__':

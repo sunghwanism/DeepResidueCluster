@@ -34,7 +34,7 @@ def main(args):
     run_wandb = init_wandb(config)
 
     # Load Data
-    train, test, val = LoadDataset(config, only_test=False)
+    train, test, val = LoadDataset(config, only_test=False, clear_att_in_orginG=True)
     trainLoader = getDataLoader(train, config)
     valLoader = getDataLoader(val, config, test=True) # test=True makes shuffle=False
     testLoader = getDataLoader(test, config, test=True) # test=True makes shuffle=False
@@ -46,7 +46,7 @@ def main(args):
 
     if config.model == 'DGI':
         from models.DGI.execute import run_training
-        run_training(config, trainLoader, valLoader, testLoader)
+        run_training(config, trainLoader, valLoader, testLoader, run_wandb)
 
     else:
         raise ValueError(f"Unknown model: {config.model} || Select from ['DGI','node2vec']")
