@@ -11,18 +11,22 @@ from sklearn.model_selection import train_test_split
 from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes
 # from utils.table_utils import 
 
-def LoadDataset(config, only_test=False):
+def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     """
     Loads graph, splits into connected components, filters by size,
     converts to PyG Data, augments, and splits into train/val/test.
     """
 
     # 1. Load Graph Structure
-    graph = loadGraph(config.Graph_PATH)
-    graph = merge_graph_attributes(graph, config)
+    G = loadGraph(config.Graph_PATH)
+    graph = merge_graph_attributes(G, config)
 
     print("Graph loaded successfully")
     print(graph)
+    all_attrs = dict(graph.nodes(data=True)).copy()
+    print(all_attrs['o15392_25_trp'])
+    del all_attrs
+    del G
     print("============================"*2)
     
     # 2. Load Table Features (Node Attributes)
@@ -32,7 +36,6 @@ def LoadDataset(config, only_test=False):
             df = pd.read_csv(config.Feature_PATH)
             
             if config.label_col is not None:
-                # Check if columns exist
                 cols = [config.label_col] + config.table_features
                 df = df[cols]
             else:
@@ -75,7 +78,6 @@ def LoadDataset(config, only_test=False):
     # 5. Apply Data Augmentation
     data_list = DataAugmentation(data_list, config)
     print("Finish Data Augmentation")
-    print("============================"*2)
 
     # 6. Split Dataset (Train / Val / Test)
     if only_test:

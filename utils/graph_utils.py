@@ -121,11 +121,20 @@ def shuffle_node_features(x):
 
 def loadGraph(path):
     with open(path, 'rb') as f:
-        return pickle.load(f)
+        G = pickle.load(f)
+    return G
 
+def filtered_only_attributes(G, targets):
+    resultG = G.copy()
+    if isinstance(targets, str):
+        targets = [targets]
 
-import os
-import networkx as nx
+    for n in resultG.nodes:
+        for attr in list(resultG.nodes[n].keys()):
+            if attr not in targets:
+                resultG.nodes[n].pop(attr)
+            
+    return resultG
 
 def merge_graph_attributes(rawG, config):
     """
@@ -158,6 +167,7 @@ def merge_graph_attributes(rawG, config):
                 try:
                     # Load the attribute graph (contains node features)
                     attG = loadGraph(os.path.join(PATH, pkl))
+                    
                 except Exception as e:
                     print(f"Error loading {pkl}: {e}")
                     continue
@@ -188,14 +198,12 @@ def merge_graph_attributes(rawG, config):
 
     # Ensure uniqueness in the feature list
     filtered_features = list(set(filtered_features))
+    finalG = filtered_only_attributes(rawG, targets=filtered_features)
     
     # --- Final Validation Step 3: Global Feature Completeness ---
-    # Verify that every node in rawG now possesses all filtered_features.
-    # This prevents 'KeyError' when calling from_networkx later.
     final_verified_features = []
     for feat in filtered_features:
-        # Check if any node is missing this specific feature
-        missing_nodes = [n for n, d in rawG.nodes(data=True) if feat not in d]
+        missing_nodes = [n for n, d in finalG.nodes(data=True) if feat not in d]
         if not missing_nodes:
             final_verified_features.append(feat)
         else:
@@ -205,4 +213,4 @@ def merge_graph_attributes(rawG, config):
     print('============================ '*2)
     
     # Update config or return the list alongside the graph if necessary
-    return rawG
+    return finalG

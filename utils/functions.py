@@ -57,7 +57,11 @@ def LoadConfig(args):
     with open(model_config_path, 'r') as f:
         model_config = yaml.safe_load(f)
 
-    combined_config = {**vars(args), **run_config, **model_config}
+    combined_config = {**model_config, **run_config, **vars(args)}
+
+    for key, value in combined_config.items():
+        if value == "None":
+            combined_config[key] = None
 
     return argparse.Namespace(**combined_config)
 
