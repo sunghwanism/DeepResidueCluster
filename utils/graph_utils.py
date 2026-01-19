@@ -1,7 +1,11 @@
+import os
+
 import torch
 import pandas as pd
 import networkx as nx
 import numpy as np
+
+import pickle
 from torch_geometric.data import Data
 from torch_geometric.utils import from_networkx
 
@@ -28,15 +32,12 @@ def nx_to_pyg_data(G, node_features_df=None, label_col=None,
     Returns:
         Data: A PyTorch Geometric Data object with merged features (x) and labels (y).
     """
-    print("Start Convert NetworkX to PyG Data")
-    print("============================ "*2)
     
     # 1. Convert graph structure and extract internal graph features
     data = from_networkx(G, group_node_attrs=graph_features)
 
     # 2. Handle Edge Weights
     if not use_edge_weight and hasattr(data, 'edge_weight'):
-        print("Not Use Edge Weight")
         del data.edge_weight
     
     # 3. Align Node Order (Crucial for mapping DataFrame to Graph)
@@ -117,3 +118,91 @@ def shuffle_node_features(x):
     """
     idx = torch.randperm(x.size(0))
     return x[idx]
+
+def loadGraph(path):
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+
+
+import os
+import networkx as nx
+
+def merge_graph_attributes(rawG, config):
+    """
+    Merges node attributes from external pickle files into the main graph (rawG).
+    Includes validation to ensure node consistency and attribute existence.
+    """
+    PATH = config.GraphAtt_PATH
+    files = os.listdir(PATH)
+    use_features = config.graph_features
+    filtered_features = []
+
+    # Get the set of nodes from the original graph for consistency checks
+    raw_nodes = set(rawG.nodes())
+    num_raw_nodes = rawG.number_of_nodes()
+
+    for pkl in files:
+        # 1. Filter files by naming convention
+        if pkl.endswith('.pkl') and pkl.startswith('graph_with_'):
+            # Extract internal attribute name from filename
+            att_name = pkl.removeprefix("graph_with_").removesuffix(".pkl")
+            
+            # Normalize specific feature names (e.g., shortest_path_length)
+            if 'shortest_path_length' in att_name:
+                display_name = 'shortest_path_length'
+            else:
+                display_name = att_name
+
+            # 2. Check if this feature is requested in config
+            if display_name in use_features:
+                try:
+                    # Load the attribute graph (contains node features)
+                    attG = loadGraph(os.path.join(PATH, pkl))
+                except Exception as e:
+                    print(f"Error loading {pkl}: {e}")
+                    continue
+                
+                # --- Validation Step 1: Structural Consistency ---
+                # Check if node counts and node IDs match perfectly
+                att_nodes = set(attG.nodes())
+                if num_raw_nodes == attG.number_of_nodes() and att_nodes == raw_nodes:
+                    
+                    # --- Validation Step 2: Attribute Existence ---
+                    # Sample the first node to verify the attribute key exists in attG
+                    sample_node = next(iter(attG.nodes()))
+                    actual_keys = attG.nodes[sample_node].keys()
+                    
+                    if not actual_keys:
+                        print(f"Warning: No attributes found in nodes of {pkl}")
+                        continue
+
+                    # Merge attributes from attG into rawG
+                    for node, attrs in attG.nodes(data=True):
+                        # Update rawG node dictionary with new attributes
+                        rawG.nodes[node].update(attrs)
+                    
+                    filtered_features.append(display_name)
+                    print(f"Successfully merged feature: [{display_name}] from {pkl}")
+                else:
+                    print(f"Validation Failed for {pkl}: Node mismatch (Count or IDs)")
+
+    # Ensure uniqueness in the feature list
+    filtered_features = list(set(filtered_features))
+    
+    # --- Final Validation Step 3: Global Feature Completeness ---
+    # Verify that every node in rawG now possesses all filtered_features.
+    # This prevents 'KeyError' when calling from_networkx later.
+    final_verified_features = []
+    for feat in filtered_features:
+        # Check if any node is missing this specific feature
+        missing_nodes = [n for n, d in rawG.nodes(data=True) if feat not in d]
+        if not missing_nodes:
+            final_verified_features.append(feat)
+        else:
+            print(f"CRITICAL: Feature '{feat}' is missing in {len(missing_nodes)} nodes! Dropping from list.")
+
+    print("Final Filtered Features for PyG conversion: ", final_verified_features)
+    print('============================ '*2)
+    
+    # Update config or return the list alongside the graph if necessary
+    return rawG

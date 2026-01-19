@@ -1,3 +1,5 @@
+import os
+
 import pickle
 import pandas as pd
 import networkx as nx
@@ -6,7 +8,8 @@ import torch
 from torch_geometric.loader import DataLoader
 from sklearn.model_selection import train_test_split
 
-from utils.graph_utils import nx_to_pyg_data
+from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes
+# from utils.table_utils import 
 
 def LoadDataset(config, only_test=False):
     """
@@ -15,12 +18,12 @@ def LoadDataset(config, only_test=False):
     """
 
     # 1. Load Graph Structure
-    with open(config.Graph_PATH, 'rb') as f:
-        graph = pickle.load(f)
+    graph = loadGraph(config.Graph_PATH)
+    graph = merge_graph_attributes(graph, config)
 
     print("Graph loaded successfully")
-    print(f"Original Graph: {graph}") 
-    print("============================ "*2)
+    print(graph)
+    print("============================"*2)
     
     # 2. Load Table Features (Node Attributes)
     df = None 
@@ -39,7 +42,7 @@ def LoadDataset(config, only_test=False):
         except Exception as e:
             print(f"Warning: Failed to load CSV features. {e}")
             df = None
-    print("============================ "*2)
+    print("============================"*2)
 
     # 3. Split Graph into Connected Components
     print("Splitting graph into connected components...")
@@ -49,7 +52,7 @@ def LoadDataset(config, only_test=False):
     
     components = ProcessConnectedComponents(components, config)
     print(f"Components after filtering size: {len(components)}")
-    print("============================ "*2)
+    print("============================"*2)
 
     # 4. Convert to PyG Data Objects
     data_list = []
@@ -67,12 +70,12 @@ def LoadDataset(config, only_test=False):
         data_list.append(pyg_obj)
     
     print("PyG Data conversion complete")
-    print("============================ "*2)
+    print("============================"*2)
 
     # 5. Apply Data Augmentation
     data_list = DataAugmentation(data_list, config)
     print("Finish Data Augmentation")
-    print("============================ "*2)
+    print("============================"*2)
 
     # 6. Split Dataset (Train / Val / Test)
     if only_test:
@@ -99,8 +102,6 @@ def LoadDataset(config, only_test=False):
         test_size=relative_val_size, 
         random_state=config.SEED
     )
-
-    print(f"Dataset Split -> Train: {len(train)}, Val: {len(val)}, Test: {len(test)}")
     
     return train, test, val
 
@@ -113,7 +114,7 @@ def DataAugmentation(data_list, config):
     augmentation_log = []
     
     # 1. Add Constant Feature
-    if getattr(config, 'add_constant_feature', False):
+    if getattr(config, 'add_const_to_node', False):
         for PyGData in data_list:
             num_nodes = PyGData.num_nodes # PyG object uses .num_nodes
             constant_x = torch.ones((num_nodes, 1), dtype=torch.float)

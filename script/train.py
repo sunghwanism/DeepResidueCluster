@@ -6,10 +6,12 @@ import argparse
 
 import yaml
 
-from data.process import LoadDataset
-from utils.functions import init_wandb, LoadConfig
+from data.process import LoadDataset, getDataLoader
+from utils.functions import init_wandb, LoadConfig, set_seed
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+import warnings
+warnings.filterwarnings("ignore")
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run DGI model')
@@ -17,9 +19,10 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--num_workers', type=int, default=4, help='Number of workers for data loading')
     parser.add_argument('--wandb_key', type=str, default=None, help='Wandb API key')
-    parser.add_argument('--entity_name', type=str, default='Panchenko-Lab', help='Wandb entity name')
+    parser.add_argument('--entity_name', type=str, default='shmoon', help='Wandb entity name')
     parser.add_argument('--project_name', type=str, default='DeepResidueCluster', help='Wandb project name')
     parser.add_argument('--wandb_run_name', type=str, default='DGI', help='Wandb run name')
+    parser.add_argument('--wandb_run_id', type=str, default=None, help='Wandb run id')
     parser.add_argument('--load_pretrained', action='store_true', help='Load pretrained model')
     parser.add_argument('--nowandb', action='store_true', help='Do not use wandb')
     return parser.parse_args()
@@ -36,9 +39,10 @@ def main(args):
     valLoader = getDataLoader(val, config, test=True) # test=True makes shuffle=False
     testLoader = getDataLoader(test, config, test=True) # test=True makes shuffle=False
 
-    print("##################"*1)
+    print("##################"*3)
     print("Finish Loading DataLoader")
-    print("##################"*1)
+    print("Train", len(train), "Val", len(val), "Test", len(test))
+    print("##################"*3)
 
     if config.model == 'DGI':
         from models.DGI.execute import run_training
@@ -50,7 +54,6 @@ def main(args):
     # Finish wandb run
     if run_wandb:
         run_wandb.finish()
-
 
 if __name__ == '__main__':
     args = parse_args()
