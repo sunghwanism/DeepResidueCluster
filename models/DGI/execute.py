@@ -1,25 +1,23 @@
-"""
-DGI Training Script for Inductive Learning on Multiple Graphs
-
-This script trains a DGI model in an inductive setting where:
-- Training is done on a set of graphs (not a single graph)
-- Each graph is processed independently
-- The model learns to generalize to unseen graphs
-- No train/val/test masks needed (entire graphs are used)
-"""
-
 import torch
 import torch.nn as nn
 import yaml
 import os
 from torch_geometric.loader import DataLoader
 
-from models import DGI, LogReg
+import torch
+import torch.nn as nn
+import yaml
+import os
+import numpy as np
+from torch_geometric.loader import DataLoader
+
+from models.DGI.models.dgi import DGI
+from models.DGI.models.logreg import LogReg
 from utils.graph_utils import shuffle_node_features
+from utils.graph_utils import nx_to_pyg_data
 
 from torch_geometric.data import Data
 import networkx as nx
-from utils.graph_utils import nx_to_pyg_data
 
 
 def train_dgi_epoch(model, loader, optimizer, criterion, device):
@@ -77,85 +75,35 @@ def extract_embeddings(model, loader, device):
     return embeddings, labels
 
 
-def run_training(config_path=None):
-    # Load config
-    if config_path is None:
-        config_path = os.path.join(os.path.dirname(__file__), '../../config/DGI.yaml')
+def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
+    # Use config object (Namespace)
+    # config is already a Namespace-like object (argparse.Namespace)
     
-    with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
-    
-    batch_size = config['batch_size']
-    nb_epochs = config['nb_epochs']
-    patience = config['patience']
-    lr = config['lr']
-    l2_coef = config['l2_coef']
-    hid_units = config['hid_units']
-    nonlinearity = config['nonlinearity']
+    batch_size = config.batch_size
+    nb_epochs = config.epoch
+    patience = config.patience
+    lr = config.lr
+    l2_coef = config.l2_coef
+    hid_units = config.hid_units
+    nonlinearity = config.nonlinearity
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print("============================"*2)
     print(f'Using device: {device}')
+    print("============================"*2)
     
-    # ============================================
-    # Load your graph data here
-    # ============================================
-    # Example: You should replace this with your own data loading
-    # Expected format: List of PyG Data objects
-    # Each Data object should have:
-    #   - x: node features
-    #   - edge_index: graph structure
-    #   - y (optional): graph-level label
-    
-    print("\n" + "="*60)
-    print("DATA LOADING")
-    print("="*60)
-    print("You need to implement your own data loading here.")
-    print("Expected: List of torch_geometric.data.Data objects")
-    print("\nExample:")
-    print("  train_graphs = [data1, data2, ...]  # List of Data objects")
-    print("  val_graphs = [data_val1, ...]")
-    print("  test_graphs = [data_test1, ...]")
-    print("="*60 + "\n")
-    
-    # Example: Generate some random graphs
-    train_graphs = []
-    val_graphs = []
-    test_graphs = []
-    
-    # ============================================
-    # Load graph
-    # ============================================
+    # Check if loaders are provided
+    if not train_loader:
+        raise ValueError("train_loader is None")
 
-    with open(config['DATA_PATH'], 'rb') as f:
-        train_graphs = pkl.load(f)
+    # Get feature size from first batch
+    first_batch = next(iter(train_loader))
+    ft_size = first_batch.x.size(1)
 
-
-    # for i in range(100): 
-    #     G = nx.erdos_renyi_graph(n=20, p=0.3)
-    #     # Add dummy features
-    #     import pandas as pd
-    #     features_df = pd.DataFrame({
-    #         'feature_1': [G.degree(n) for n in G.nodes()],
-    #         'feature_2': [nx.clustering(G, n) for n in G.nodes()],
-    #     }, index=list(G.nodes()))
-        
-    #     data = nx_to_pyg_data(G, features_df)
-    #     data.y = torch.tensor([i % 2], dtype=torch.long)  # Dummy binary label
-    #     train_graphs.append(data)
-    
-    # print(f"Loaded {len(train_graphs)} training graphs")
-    # print(f"Loaded {len(val_graphs)} validation graphs")
-    # print(f"Loaded {len(test_graphs)} test graphs")
-    
-    # Create DataLoaders
-    train_loader = DataLoader(train_graphs, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_graphs, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_graphs, batch_size=batch_size, shuffle=False)
-    
-    # Get feature size from first graph
-    ft_size = train_graphs[0].x.size(1)
-    
-    print(f"\nFeature dimension: {ft_size}")
+    for key, values in first_batch.items():
+        print(key, ':', values.shape)
+    print("============================"*2)
+    print(f"Feature dimension: {ft_size}")
     print(f"Hidden units: {hid_units}")
     
     # Initialize model
@@ -164,13 +112,21 @@ def run_training(config_path=None):
     criterion = nn.BCEWithLogitsLoss()
     
     # Training loop
-    print("\n" + "="*60)
+    print("============================"*2)
     print("TRAINING DGI")
-    print("="*60)
+    print("============================"*2)
     
     best_loss = float('inf')
     best_epoch = 0
     cnt_wait = 0
+    
+    if run_wandb:
+        BASESAVEPATH = os.path.join(config.SAVEPATH, config.model, run_wandb.id)
+    else:
+        BASESAVEPATH = os.path.join(config.SAVEPATH, config.model)
+    
+    os.makedirs(BASESAVEPATH, exist_ok=True)
+    save_path = os.path.join(BASESAVEPATH, 'BestPerformance.pkl')
     
     for epoch in range(nb_epochs):
         train_loss = train_dgi_epoch(model, train_loader, optimizer, criterion, device)
@@ -192,81 +148,85 @@ def run_training(config_path=None):
                 loss = criterion(logits, lbl)
                 val_loss += loss.item()
         
-        val_loss /= len(val_loader)
+        if len(val_loader) > 0:
+            val_loss /= len(val_loader)
         
         if epoch % 10 == 0:
             print(f'Epoch {epoch:4d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}')
         
         # Early stopping based on validation loss
-        if val_loss < best_loss:
-            best_loss = val_loss
-            best_epoch = epoch
-            cnt_wait = 0
-            torch.save(model.state_dict(), 'best_dgi_inductive.pkl')
-        else:
-            cnt_wait += 1
+        # if val_loss < best_loss:
+        #     best_loss = val_loss
+        #     best_epoch = epoch
+        #     cnt_wait = 0
+        #     torch.save(model.state_dict(), save_path)
+        # else:
+        #     cnt_wait += 1
         
-        if cnt_wait >= patience:
-            print(f'\nEarly stopping at epoch {epoch}')
-            break
+        # if cnt_wait >= patience:
+        #     print(f'\nEarly stopping at epoch {epoch}')
+        #     break
     
     print(f'\nBest epoch: {best_epoch}, Best val loss: {best_loss:.4f}')
     
     # Load best model
-    print("\n" + "="*60)
-    print("EXTRACTING EMBEDDINGS")
-    print("="*60)
+    # print("\n" + "="*60)
+    # print("EXTRACTING EMBEDDINGS")
+    # print("="*60)
     
-    model.load_state_dict(torch.load('best_dgi_inductive.pkl'))
+    # if os.path.exists(save_path):
+    #     model.load_state_dict(torch.load(save_path))
+    # else:
+    #     print("Warning: Best model file not found, using current model state.")
     
-    # Extract embeddings for all sets
-    train_embeds, train_labels = extract_embeddings(model, train_loader, device)
-    val_embeds, val_labels = extract_embeddings(model, val_loader, device)
-    test_embeds, test_labels = extract_embeddings(model, test_loader, device)
+    # # Extract embeddings for all sets
+    # train_embeds, train_labels = extract_embeddings(model, train_loader, device)
+    # val_embeds, val_labels = extract_embeddings(model, val_loader, device)
+    # test_embeds, test_labels = extract_embeddings(model, test_loader, device)
     
-    print(f"Train embeddings shape: {train_embeds.shape}")
-    print(f"Val embeddings shape: {val_embeds.shape}")
-    print(f"Test embeddings shape: {test_embeds.shape}")
+    # print(f"Train embeddings shape: {train_embeds.shape}")
+    # print(f"Val embeddings shape: {val_embeds.shape}")
+    # print(f"Test embeddings shape: {test_embeds.shape}")
     
-    # Evaluate with logistic regression (if labels available)
-    if train_labels is not None and test_labels is not None:
-        print("\n" + "="*60)
-        print("DOWNSTREAM EVALUATION")
-        print("="*60)
+    # # Evaluate with logistic regression (if labels available)
+    # if train_labels is not None and test_labels is not None:
+    #     print("\n" + "="*60)
+    #     print("DOWNSTREAM EVALUATION")
+    #     print("="*60)
         
-        nb_classes = int(train_labels.max().item()) + 1
-        xent = nn.CrossEntropyLoss()
+    #     nb_classes = int(train_labels.max().item()) + 1
+    #     xent = nn.CrossEntropyLoss()
         
-        accs = []
-        for run in range(10):
-            log = LogReg(hid_units, nb_classes).to(device)
-            opt = torch.optim.Adam(log.parameters(), lr=0.01, weight_decay=0.0)
+    #     accs = []
+    #     for run in range(10):
+    #         log = LogReg(hid_units, nb_classes).to(device)
+    #         opt = torch.optim.Adam(log.parameters(), lr=0.01, weight_decay=0.0)
             
-            # Train
-            for _ in range(200):
-                log.train()
-                opt.zero_grad()
-                logits = log(train_embeds)
-                loss = xent(logits, train_labels)
-                loss.backward()
-                opt.step()
+    #         # Train
+    #         for _ in range(200):
+    #             log.train()
+    #             opt.zero_grad()
+    #             logits = log(train_embeds)
+    #             loss = xent(logits, train_labels)
+    #             loss.backward()
+    #             opt.step()
             
-            # Test
-            log.eval()
-            with torch.no_grad():
-                logits = log(test_embeds)
-                preds = torch.argmax(logits, dim=1)
-                acc = (preds == test_labels).float().mean().item()
-                accs.append(acc * 100)
+    #         # Test
+    #         log.eval()
+    #         with torch.no_grad():
+    #             logits = log(test_embeds)
+    #             preds = torch.argmax(logits, dim=1)
+    #             acc = (preds == test_labels).float().mean().item()
+    #             accs.append(acc * 100)
         
-        import numpy as np
-        accs = np.array(accs)
-        print(f"Test Accuracy: {accs.mean():.2f}% ± {accs.std():.2f}%")
+    #     accs = np.array(accs)
+    #     print(f"Test Accuracy: {accs.mean():.2f}% ± {accs.std():.2f}%")
     
-    print("\n" + "="*60)
-    print("DONE!")
-    print("="*60)
+    # print("\n" + "="*60)
+    # print("DONE!")
+    # print("="*60)
 
 
 if __name__ == '__main__':
-    run_training()
+    # run_training() needs arguments now, so direct execution without correct context is tough.
+    pass

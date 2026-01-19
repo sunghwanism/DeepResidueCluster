@@ -1,29 +1,69 @@
 import gc
 import wandb
+import os
+import yaml
+import argparse
+
+import random
+import numpy as np
 
 import torch
 
-def init_wandb(config, key=None):
-    if not config.nowandb:
-        if key is not None:
-            wandb.login(key=key)
+def init_wandb(config):
+    if config.nowandb:
+        return None
     
-        if config.load_pretrained:
-            wandb.init(project=config.project_name,
-                        entity=config.entity_name,
-                        id=config.wandb_run_id,
-                        resume='must',
-                        reinit=True,
-                        name=config.wandb_run_name)
-
+    if config.wandb_key is not None:
+        wandb.login(key=config.wandb_key)
+    else:
+        if config.nowandb:
+            return None
         else:
-            wandb.init(project=config.project_name,
-                        entity=config.entity_name,
-                        name=config.wandb_run_name,
-                        config=config)
+            raise ValueError("wandb_key is not provided")
+    
+    init_args = {
+        "project": config.project_name,
+        "entity": config.entity_name,
+        "name": config.wandb_run_name,
+    }
 
-        config.wandb_url = wandb.run.get_url()
+    if config.load_pretrained:
+        run = wandb.init(
+            **init_args,
+            id=config.wandb_run_id,
+            resume='must',
+            reinit=True
+        )
 
+    else:
+        run = wandb.init(
+            **init_args,
+            config=config,
+            id=config.wandb_run_id,
+            )
+
+    config.wandb_url = run.get_url()
+    
+    return run
+
+def LoadConfig(args):
+    with open(args.config_path, 'r') as f:
+        run_config = yaml.safe_load(f)
+    
+    model_name = run_config.get('model')
+    model_config_path = os.path.join(
+        os.path.dirname(__file__), f'../config/{model_name}.yaml'
+    )
+    with open(model_config_path, 'r') as f:
+        model_config = yaml.safe_load(f)
+
+    combined_config = {**model_config, **run_config, **vars(args)}
+
+    for key, value in combined_config.items():
+        if value == "None":
+            combined_config[key] = None
+
+    return argparse.Namespace(**combined_config)
 
 def print_time(training_time):
     hours = int(training_time // 3600)
@@ -36,3 +76,12 @@ def print_time(training_time):
 def clean_the_memory():
     gc.collect()
     torch.cuda.empty_cache()
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)

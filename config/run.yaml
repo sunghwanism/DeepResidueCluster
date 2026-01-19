@@ -1,9 +1,40 @@
 model: DGI
-DATA_PATH: '/home/moonsun6/links/projects/rrg-panch/moonsun6/data/preprocess/'
+Graph_PATH: 
+GraphAtt_PATH: 
+Feature_PATH: 
+SAVEPATH: 
+ENV_PATH: '../envs/DRC/bin/activate'
+SEED: 42
 
+# ====================
+# Data Settings
+# ====================
 
-# wandb
-nowandb: False
-entity_name: 'Panchenko-Lab'
-project_name: 'DeepResidueCluster'
-wandb_run_name: 'DGI'
+label_col: None
+
+# Features in Table || If you don't want to use features, set it to None
+table_features: None
+# - degree
+# - shortpath
+
+# Features in nx.Graph as node attributes
+graph_features:
+  - degree
+  - shortest_path_length
+  - betweenness
+# - closeness
+
+# Edge Setting
+use_edge_weight: False
+
+# Train Test Split [Train, Validation, Test] (sum=1)
+ratio_of_data: [0.75, 0.15, 0.10]
+
+# Connected Component Setting
+max_cc_size: 1000
+min_cc_size: 3
+
+# ====================
+# Data Augmentation
+# ====================
+add_const_to_node: True
