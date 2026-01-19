@@ -5,7 +5,7 @@ import pandas as pd
 import networkx as nx
 
 import torch
-from torch_geometric.loader import DataLoader
+from torch_geometric.loader import DataLoader, NeighborLoader
 from sklearn.model_selection import train_test_split
 
 from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes
@@ -168,4 +168,16 @@ def getDataLoader(data_list, config, test=False):
                             pin_memory=True,
                             num_workers=config.num_workers,
                             shuffle=True if not test else False)
+    return dataloader
+
+
+def getNeighborhoodGraph(data_list, config, test=False):
+
+    dataloader = NeighborLoader(data_list,
+                                batch_size=config.batch_size,
+                                num_workers=config.num_workers,
+                                num_neighbors=config.num_neighbors,
+                                input_nodes=None,
+                                pin_memory=True,
+                                shuffle=True if not test else False)
     return dataloader
