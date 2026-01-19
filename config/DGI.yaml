@@ -1,10 +1,7 @@
-DATA_PATH: ''
-batch_size: 32
-nb_epochs: 1000
+epoch: 1000
 patience: 50
 lr: 0.001
 l2_coef: 0.0
 drop_prob: 0.0
 hid_units: 512
-sparse: True
 nonlinearity: 'prelu'
