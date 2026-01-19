@@ -1,0 +1,9 @@
+model: DGI
+DATA_PATH: '/home/moonsun6/links/projects/rrg-panch/moonsun6/data/preprocess/'
+
+
+# wandb
+nowandb: False
+entity_name: 'Panchenko-Lab'
+project_name: 'DeepResidueCluster'
+wandb_run_name: 'DGI'
