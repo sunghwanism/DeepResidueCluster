@@ -107,7 +107,7 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
     print(f"Hidden units: {hid_units}")
     
     # Initialize model
-    model = DGI(ft_size, hid_units, nonlinearity).to(device)
+    model = DGI(ft_size, hid_units, nonlinearity, config.agg_method).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=l2_coef)
     criterion = nn.BCEWithLogitsLoss()
     

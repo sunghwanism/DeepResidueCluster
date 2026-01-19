@@ -5,12 +5,12 @@ from torch_geometric.nn import SAGEConv
 from utils.activation import getActivation
 
 class DenseGCN(nn.Module):
-    def __init__(self, in_ft, out_ft, activation):
+    def __init__(self, in_ft, out_ft, activation, agg_method):
         super(DenseGCN, self).__init__()
         self.proj = nn.Linear(in_ft, out_ft)
-        self.conv1 = SAGEConv(in_ft, out_ft, aggr='mean')
-        self.conv2 = SAGEConv(out_ft + out_ft, out_ft, aggr='mean')
-        self.conv3 = SAGEConv(out_ft + 2 * out_ft, out_ft, aggr='mean')
+        self.conv1 = SAGEConv(in_ft, out_ft, aggr=agg_method)
+        self.conv2 = SAGEConv(out_ft + out_ft, out_ft, aggr=agg_method)
+        self.conv3 = SAGEConv(out_ft + 2 * out_ft, out_ft, aggr=agg_method)
 
         self.act = getActivation(activation)
 
