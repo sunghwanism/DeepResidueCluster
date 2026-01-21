@@ -21,9 +21,9 @@ def EncodeFeatures(df, use_features, dictPath):
             if result_df[feat].isnull().any():
                 result_df[feat] = result_df[feat].fillna(-1)
 
-        elif isinstance(df[feat].values[0], str):
+        elif feat == 'mut+res-bin':
+            result_df[feat] = result_df[feat].astype('int32')
             category_feat.append(feat)
-            pass
 
         else:
             result_df[feat] = result_df[feat].astype('float32')
@@ -32,3 +32,22 @@ def EncodeFeatures(df, use_features, dictPath):
 
 def CDSContext(df):
     pass
+
+def make_bin_cols(
+    df: pd.DataFrame, 
+    gen_col_name: str, 
+    bin_size: int = 42, 
+    method: str = 'bin'
+) -> pd.DataFrame:
+    """
+    Bins mutability data and plots the distribution.
+    method: 'bin' (equal width) or 'q' (quantile based)
+    """
+    if method == 'bin':
+        df[gen_col_name] = pd.cut(df['mutability'], bins=bin_size, labels=False, include_lowest=True)
+    elif method == 'q':
+        df[gen_col_name] = pd.qcut(df['mutability'], q=bin_size, labels=False, duplicates='drop')
+
+    df[gen_col_name] = df[gen_col_name].astype('int32')
+
+    return df

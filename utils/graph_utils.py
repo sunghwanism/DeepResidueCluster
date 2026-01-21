@@ -85,8 +85,10 @@ def nx_to_pyg_data(G, node_features_df=None, label_col=None,
 
             # If there are categorical features, add them to the data object
             if len(category_feat) > 0:
-                cat_feat = torch.tensor(df_ordered[category_feat].values, dtype=torch.long)
-                data.x_cat = cat_feat
+                if hasattr(data, 'x_cat') and data.x_cat is not None:
+                    data.x_cat = torch.cat([data.x_cat, torch.tensor(df_ordered[category_feat].values, dtype=torch.long)], dim=1)
+                else:
+                    data.x_cat = torch.tensor(df_ordered[category_feat].values, dtype=torch.long)
 
     
     if not hasattr(data, 'x') or data.x is None:

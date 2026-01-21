@@ -33,8 +33,11 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     if config.table_features is not None:
         try:
             df = pd.read_csv(config.Feature_PATH)
+
+            if 'mut+res-bin' in config.table_features:
+                df = make_bin_cols(df, 'mut+res-bin', bin_size=config.bin_size)
+                
             df = df.set_index(config.node_col_name)
-            
             if config.label_col is not None:
                 cols = [config.label_col] + config.table_features
                 df = df[cols]
