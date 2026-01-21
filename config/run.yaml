@@ -13,9 +13,12 @@ SEED: 42
 label_col: None
 
 # Features in Table || If you don't want to use features, set it to None
-table_features: None
-# - degree
-# - shortpath
+node_col_name: node_id
+dict_for_uniprot_to_index: 'config/uniprot-id_to_index.json'
+table_features:
+  - mutability
+  - total_mutations_count
+  - uniprot_id
 
 # Features in nx.Graph as node attributes
 graph_features:
@@ -38,3 +41,5 @@ min_cc_size: 3
 # Data Augmentation
 # ====================
 add_const_to_node: True
+split_to_subgraphs: 
+  - mut_anchored

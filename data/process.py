@@ -9,7 +9,6 @@ from torch_geometric.loader import DataLoader
 from sklearn.model_selection import train_test_split
 
 from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes
-# from utils.table_utils import 
 
 def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     """
@@ -34,6 +33,7 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     if config.table_features is not None:
         try:
             df = pd.read_csv(config.Feature_PATH)
+            df = df.set_index(config.node_col_name)
             
             if config.label_col is not None:
                 cols = [config.label_col] + config.table_features
@@ -68,7 +68,8 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
             graph_features=config.graph_features, 
             table_features=config.table_features, 
             use_edge_weight=config.use_edge_weight,
-            add_constant_feature=False 
+            add_constant_feature=False,
+            config=config
         )
         data_list.append(pyg_obj)
     
