@@ -9,6 +9,7 @@ from torch_geometric.loader import DataLoader
 from sklearn.model_selection import train_test_split
 
 from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes
+from utils.table_utils import make_bin_cols
 
 def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     """
@@ -36,7 +37,7 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
 
             if 'mut+res-bin' in config.table_features:
                 df = make_bin_cols(df, 'mut+res-bin', bin_size=config.bin_size)
-                
+
             df = df.set_index(config.node_col_name)
             if config.label_col is not None:
                 cols = [config.label_col] + config.table_features
