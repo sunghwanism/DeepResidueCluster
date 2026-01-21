@@ -8,12 +8,14 @@ import numpy as np
 import pickle
 from torch_geometric.data import Data
 from torch_geometric.utils import from_networkx
+from utils.table_utils import EncodeFeatures
 
 def nx_to_pyg_data(G, node_features_df=None, label_col=None, 
                    graph_features=None, 
                    table_features=None,
                    add_constant_feature=True, 
-                   use_edge_weight=False):
+                   use_edge_weight=False,
+                   config=None):
     """
     Converts a NetworkX graph to a PyTorch Geometric Data object, 
     merging features from both the graph attributes and an external DataFrame.
@@ -69,6 +71,8 @@ def nx_to_pyg_data(G, node_features_df=None, label_col=None,
             features_to_use = [col for col in df_ordered.columns if col != label_col]
         
         if len(features_to_use) > 0:
+            df_ordered, category_feat = EncodeFeatures(df_ordered, features_to_use, config.dict_for_uniprot_to_index)
+            features_to_use = [col for col in features_to_use if col not in category_feat]
             table_x = torch.tensor(df_ordered[features_to_use].values, dtype=torch.float)
             
             # [Core Logic] Merge Graph Features and Table Features
@@ -78,6 +82,12 @@ def nx_to_pyg_data(G, node_features_df=None, label_col=None,
             else:
                 # If only table features exist, assign them directly
                 data.x = table_x
+
+            # If there are categorical features, add them to the data object
+            if len(category_feat) > 0:
+                cat_feat = torch.tensor(df_ordered[category_feat].values, dtype=torch.long)
+                data.x_cat = cat_feat
+
     
     if not hasattr(data, 'x') or data.x is None:
         raise ValueError("Error: No features provided. Please provide either graph features or table features.")

@@ -9,8 +9,13 @@ import numpy as np
 
 import torch
 
+import warnings
+warnings.filterwarnings("ignore")
+
+
 def init_wandb(config):
     if config.nowandb:
+        print("Do Not Use Wandb")
         return None
     
     if config.wandb_key is not None:
