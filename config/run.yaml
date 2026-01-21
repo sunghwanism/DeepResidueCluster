@@ -19,6 +19,9 @@ table_features:
   - mutability
   - total_mutations_count
   - uniprot_id
+  - mut+res-bin # bin=42
+
+bin_size: 42
 
 # Features in nx.Graph as node attributes
 graph_features:
