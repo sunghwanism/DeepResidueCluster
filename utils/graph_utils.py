@@ -223,6 +223,82 @@ def merge_graph_attributes(rawG, config):
 
     print("Final Filtered Features for PyG conversion: ", final_verified_features)
     print('============================ '*2)
-    
-    # Update config or return the list alongside the graph if necessary
+
+
+    if config.split_to_subgraphs:
+        df = pd.read_csv(config.Feature_PATH)
+        df = df[['node_id', 'is_mut']]
+
+        mut_mapping = dict(zip(df['node_id'], df['is_mut']))
+        
+        for node in finalG.nodes():
+            val = mut_mapping.get(node, 0)
+            finalG.nodes[node]['is_mut'] = val
+
     return finalG
+
+
+def map_att_to_node(graph, attdf, use_cols=None, node_id_col='node_id', verbose=False):
+    """Maps attributes from a DataFrame to graph nodes."""
+
+    resultG = graph.copy()
+    if use_cols:
+        attdf = attdf[[node_id_col] + use_cols]
+
+    attdf = attdf.set_index(node_id_col)
+    node_list = list(graph.nodes)
+    
+    attr_dict = attdf.to_dict(orient='index')
+    
+    # Initialize default values for nodes missing in the dataframe
+    for node in node_list:
+        if node not in attr_dict:
+            attr_dict[node] = {c: 0 for c in (use_cols or [])}
+    
+    # Custom logic: 'has_mutation' flag
+    for node in node_list:
+        val = attr_dict[node].get('total_mutations_count', 0)
+        attr_dict[node]['has_mutation'] = 1 if val != 0 else 0
+    
+    # Filter only existing nodes and set attributes
+    attr_dict = {n: attr_dict[n] for n in node_list if n in attr_dict}
+    nx.set_node_attributes(resultG, attr_dict)
+    
+    if verbose:
+        print("=========== Validation Example ===========")
+        node_to_check = 'p30260_761_ser'
+        if resultG.has_node(node_to_check):
+            print(f"Attributes for node {node_to_check}:")
+            pprint(resultG.nodes[node_to_check])
+        else:
+            print(f"Node {node_to_check} not in the graph.")
+            
+        # Check an empty node (node in graph but not in DF)
+        missing_nodes = list(set(node_list) - set(attdf.index))
+        if missing_nodes:
+            print("Node without Mutation Example:")
+            pprint(graph.nodes[missing_nodes[0]])
+        
+    return resultG
+
+def get_node_att_value(obj, att):
+    """Helper to get attribute value from a Graph node or dict."""
+    if obj is None:
+        raise ValueError("Input object is None.")
+    if isinstance(obj, nx.Graph):
+        return [d.get(att, None) for n, d in obj.nodes(data=True)]
+    elif isinstance(obj, dict):
+        return obj.get(att, None)
+    else:
+        raise TypeError("Input must be a networkx Graph or a node attribute dictionary.")
+
+
+def get_edge_att_value(G, att):
+    """Helper to get attribute value from Graph edges."""
+    return [d.get(att, None) for u, v, d in G.edges(data=True)]
+
+def get_sample(G):
+    """Returns a sample node and edge from the graph."""
+    sample_node = next(iter(G.nodes))
+    sample_edge = next(iter(G.edges))
+    return sample_node, sample_edge
