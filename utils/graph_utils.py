@@ -179,6 +179,7 @@ def merge_graph_attributes(rawG, config):
                 try:
                     # Load the attribute graph (contains node features)
                     attG = loadGraph(os.path.join(PATH, pkl))
+                    attG = attG.subgraph(raw_nodes).copy()
                     
                 except Exception as e:
                     print(f"Error loading {pkl}: {e}")
@@ -226,7 +227,7 @@ def merge_graph_attributes(rawG, config):
 
 
     if config.split_to_subgraphs:
-        df = pd.read_csv(config.Feature_PATH)
+        df = pd.read_csv(config.Feature_PATH+'node_mutation_with_BMR_v120525.csv',)
         df = df[['node_id', 'is_mut']]
 
         mut_mapping = dict(zip(df['node_id'], df['is_mut']))

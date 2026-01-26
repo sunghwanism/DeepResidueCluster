@@ -99,11 +99,12 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
     # Get feature size from first batch
     first_batch = next(iter(train_loader))
     ft_size = first_batch.x.size(1)
+    cat_ft_size = first_batch.x_cat.size(1)
 
-    for key, values in first_batch.items():
-        print(key, ':', values.shape)
+    # for key, values in first_batch.items():
+    #     print(key, ':', values.shape)
     print("============================"*2)
-    print(f"Feature dimension: {ft_size}")
+    print(f"Feature dimension: Numerical: {ft_size} + Categorical: {cat_ft_size}")
     print(f"Hidden units: {hid_units}")
     
     # Initialize model
