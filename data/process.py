@@ -5,11 +5,12 @@ import pandas as pd
 import networkx as nx
 
 import torch
-from torch_geometric.loader import DataLoader
+from torch_geometric.loader import DataLoader, NeighborLoader
 from sklearn.model_selection import train_test_split
 
-from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes
-from utils.table_utils import make_bin_cols
+from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes, filtered_only_attributes, get_sample
+from utils.table_utils import make_bin_cols, scaling_and_fillnafeature
+from data.Augmentation import mutation_anchored_subgraphs
 
 def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     """
@@ -23,17 +24,25 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
 
     print("Graph loaded successfully")
     print(graph)
-    all_attrs = dict(graph.nodes(data=True)).copy()
-    print(all_attrs['o15392_25_trp'])
-    del all_attrs
-    del G
+    node, edge = get_sample(graph)
+    print("Node Example", node)
+    print("Edge Example", edge)
+    del G, node, edge
     print("============================"*2)
     
     # 2. Load Table Features (Node Attributes)
     df = None 
     if config.table_features is not None:
         try:
-            df = pd.read_csv(config.Feature_PATH)
+            basic_node_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_features.csv'))
+            am_node_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_features_with_am.csv'))
+            bmr_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_mutation_with_BMR_v120525.csv'))
+            bmr_df.drop(columns=['total_mutations_count', 'unique_mutation_types_count', 'unique_patients_count', 'uniprot_id'], inplace=True)
+
+            df = pd.merge(basic_node_df, am_node_df, on='node_id', how='left')
+            df = pd.merge(df, bmr_df, on='node_id', how='left')
+
+            df = scaling_and_fillnafeature(df, config.table_features)
 
             if 'mut+res-bin' in config.table_features:
                 df = make_bin_cols(df, 'mut+res-bin', bin_size=config.bin_size)
@@ -53,13 +62,41 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
 
     # 3. Split Graph into Connected Components
     print("Splitting graph into connected components...")
-    
-    components = [graph.subgraph(c).copy() for c in nx.connected_components(graph)]
+
+    components = [
+        graph.subgraph(c).copy() 
+        for c in nx.connected_components(graph) 
+        if config.min_cc_size <= len(c) <= config.max_cc_size
+    ]
     print(f"Total Components found: {len(components)}")
     
     components = ProcessConnectedComponents(components, config)
     print(f"Components after filtering size: {len(components)}")
     print("============================"*2)
+
+    # AugmentedComponents = []
+
+    # if config.split_to_subgraphs:
+    #     print("Splitting components into subgraphs...")
+    #     for comp in components:
+    #         aug_comp_list = mutation_anchored_subgraphs(comp, 'is_mut', config.aug_subgraph_steps)
+    #         cleaned_comp_list = [filtered_only_attributes(cp, targets=config.table_features) for cp in aug_comp_list]
+    #         final_comp_list = ProcessConnectedComponents(cleaned_comp_list, config)
+    #         AugmentedComponents.extend(final_comp_list)
+
+    #         cleaned_origin_graph = filtered_only_attributes(comp, targets=config.table_features)
+    #         AugmentedComponents.extend(cleaned_origin_graph)
+
+    #     components = AugmentedComponents.copy()
+
+    #     del AugmentedComponents, aug_comp_list, cleaned_comp_list, final_comp_list, cleaned_origin_graph
+
+    #     print(f"Total Subgraphs found: {len(cleaned_comp_list)}")
+    #     temp = list(cleaned_comp_list[0].nodes(data=True))[0]
+    #     print(temp)
+
+    #     print(f"Components after augmentation (incl. original CC): {len(components)}")
+    #     print("============================"*2)
 
     # 4. Convert to PyG Data Objects
     data_list = []
