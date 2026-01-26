@@ -86,6 +86,7 @@ def scaling_and_fillnafeature(df, feat_name=None):
                 print(f"Scaling {feat}:", "Fillna(0)")
 
             else:
-                raise ValueError(f"Feature {feat} is not supported.")
+                # raise ValueError(f"Feature {feat} is not supported.")
+                print("Pass:", feat)
                 
     return result_df

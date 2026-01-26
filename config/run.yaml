@@ -17,9 +17,23 @@ node_col_name: node_id
 dict_for_uniprot_to_index: 'config/uniprot-id_to_index.json'
 table_features:
   - mutability
-  - total_mutations_count
   - uniprot_id
-  - mut+res-bin # bin=42
+  - mut+res-bin
+  # Location
+  - BHAR880101
+  - CHOP780201
+  - GRAR740102
+  - GRAR740103
+  - JANJ780101
+  - KLEP840101
+  - KYTJ820101
+  # Mutation -> Include Null Value --> fillna Applied
+  - total_mutations_count
+  - DAYM780301_avg #  DAYM780301 score=10^(DAYM780301_avg/10)
+  - HENS920102_avg  # HENS920102_score=2^(HENS920102_avg/3)
+  - unique_patients_count
+  - unique_mutation_types_count
+  # AM --> To be Updated
 
 bin_size: 42
 
@@ -34,11 +48,11 @@ graph_features:
 use_edge_weight: False
 
 # Train Test Split [Train, Validation, Test] (sum=1)
-ratio_of_data: [0.75, 0.15, 0.10]
-
+ratio_of_data: [0.70, 0.15, 0.15]
+ 
 # Connected Component Setting
-max_cc_size: 1000
-min_cc_size: 3
+max_cc_size: 50000
+min_cc_size: 4
 
 # ====================
 # Data Augmentation
@@ -46,3 +60,4 @@ min_cc_size: 3
 add_const_to_node: True
 split_to_subgraphs: 
   - mut_anchored
+aug_subgraph_steps: 3
