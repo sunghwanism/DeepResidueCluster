@@ -205,9 +205,18 @@ def ProcessConnectedComponents(components_list, config):
 
 
 def getDataLoader(data_list, config, test=False):
-    dataloader = DataLoader(data_list,
-                            batch_size=config.batch_size,
-                            pin_memory=True,
-                            num_workers=config.num_workers,
-                            shuffle=True if not test else False)
+    if config.num_sample_nodes is None:
+        dataloader = DataLoader(data_list,
+                                batch_size=config.batch_size,
+                                pin_memory=True,
+                                num_workers=config.num_workers,
+                                shuffle=True if not test else False)
+    else:
+        assert len(config.num_sample_nodes) > 3 # num_sample_nodes should be a larger than the number of layers
+        dataloader = NeighborLoader(data_list,
+                                    batch_size=config.batch_size,
+                                    pin_memory=True,
+                                    num_workers=config.num_workers,
+                                    num_neighbors=config.num_sample_nodes,
+                                    shuffle=True if not test else False)
     return dataloader
