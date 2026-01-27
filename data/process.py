@@ -85,7 +85,7 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     components.sort(key=lambda x: x.number_of_nodes(), reverse=True)
 
     if not only_test:
-        if not os.path.exists(os.path.join(config.PreProcessDATA, f"{config.project_name}_train.pkl")):
+        if not os.path.exists(f"{config.project_name}_train.pkl"):
             # Force top 5 into Train
             mandatory_train = components[:5]
             remaining_components = components[5:]
@@ -126,7 +126,7 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
             test_comps = None
 
             for name in ['train', 'val', 'test']:
-                save_path = os.path.join(config.PreProcessDATA, f"{config.project_name}_{name}.pkl")
+                save_path = f"{config.project_name}_{name}.pkl"
                 with open(save_path, 'rb') as f:
                     if name == 'train':
                         train_comps = pickle.load(f)
