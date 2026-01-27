@@ -122,7 +122,7 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
     cnt_wait = 0
     
     if run_wandb:
-        BASESAVEPATH = os.path.join(config.SAVEPATH, config.model, run_wandb.id)
+        BASESAVEPATH = os.path.join(config.SAVEPATH, config.model, run_wandb.id) # train-1
     else:
         BASESAVEPATH = os.path.join(config.SAVEPATH, config.model)
     
@@ -131,7 +131,7 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
     
     for epoch in range(nb_epochs):
         train_loss = train_dgi_epoch(model, train_loader, optimizer, criterion, device)
-        
+                
         # Validation
         model.eval()
         val_loss = 0
@@ -156,19 +156,30 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
             print(f'Epoch {epoch:4d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}')
         
         # Early stopping based on validation loss
-        # if val_loss < best_loss:
-        #     best_loss = val_loss
-        #     best_epoch = epoch
-        #     cnt_wait = 0
-        #     torch.save(model.state_dict(), save_path)
-        # else:
-        #     cnt_wait += 1
+        if val_loss < best_loss:
+            best_loss = val_loss
+            best_epoch = epoch
+            cnt_wait = 0
+            torch.save(model.state_dict(), save_path)
+            if run_wandb:
+                run_wandb.run.summary["best_val_loss"] = best_loss
+                run_wandb.run.summary["best_epoch"] = best_epoch
+        else:
+            cnt_wait += 1
+
+        if run_wandb:
+            run_wandb.log({"train_loss": train_loss})
+            run_wandb.log({"val_loss": val_loss})
         
-        # if cnt_wait >= patience:
-        #     print(f'\nEarly stopping at epoch {epoch}')
-        #     break
-    
+        if cnt_wait >= patience:
+            print("=========="*10)
+            print(f'\nEarly stopping at epoch {epoch}')
+            print("=========="*10)
+            break
+        
+    print("##########"*10)
     print(f'\nBest epoch: {best_epoch}, Best val loss: {best_loss:.4f}')
+    print("##########"*10)
     
     # Load best model
     # print("\n" + "="*60)
@@ -228,6 +239,6 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
     # print("="*60)
 
 
-if __name__ == '__main__':
-    # run_training() needs arguments now, so direct execution without correct context is tough.
-    pass
+# if __name__ == '__main__':
+#     # run_training() needs arguments now, so direct execution without correct context is tough.
+#     pass
