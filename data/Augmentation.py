@@ -32,10 +32,10 @@ def mutation_anchored_subgraphs(graph: nx.Graph, attribute: str, steps: int = 3,
 
     if sample_ratio < 1.0:
         num_samples = int(len(anchors) * sample_ratio)
-        if num_samples > 0:
+        if num_samples > 2:
             anchors = random.sample(anchors, num_samples)
-        elif anchors:
-            pass
+        else:
+            anchors = anchors
 
     def get_nodes_from_bfs(start_node, depth, max_len=2000):
         visited = {start_node}
