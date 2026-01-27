@@ -1,3 +1,4 @@
+DeepResidueCluster*.pkl
 config/run.yaml
 logs/*
 Notebook.ipynb
