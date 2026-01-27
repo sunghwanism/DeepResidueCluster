@@ -1,8 +1,11 @@
 import os
+import time
+from tqdm import tqdm
 
 import pickle
 import pandas as pd
 import networkx as nx
+import matplotlib.pyplot as plt
 
 import torch
 from torch_geometric.loader import DataLoader, NeighborLoader
@@ -74,29 +77,43 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     print(f"Components after filtering size: {len(components)}")
     print("============================"*2)
 
-    # AugmentedComponents = []
+    AugmentedComponents = []
 
-    # if config.split_to_subgraphs:
-    #     print("Splitting components into subgraphs...")
-    #     for comp in components:
-    #         aug_comp_list = mutation_anchored_subgraphs(comp, 'is_mut', config.aug_subgraph_steps)
-    #         cleaned_comp_list = [filtered_only_attributes(cp, targets=config.table_features) for cp in aug_comp_list]
-    #         final_comp_list = ProcessConnectedComponents(cleaned_comp_list, config)
-    #         AugmentedComponents.extend(final_comp_list)
+    if config.split_to_subgraphs:
+        print("[DataAugmentation] Splitting components into small subgraphs...")
+        start_time = time.time()
+        
+        for comp in components:
+            aug_comp_list = mutation_anchored_subgraphs(
+                comp, 
+                'is_mut', 
+                config.aug_subgraph_steps, 
+                max_nodes=2000, 
+                sample_ratio=0.3,   
+                min_size=getattr(config, 'min_cc_size', 0), 
+                max_size=getattr(config, 'max_cc_size', float('inf'))
+            )
+            final_comp_list = ProcessConnectedComponents(aug_comp_list, config)
+            AugmentedComponents.extend(final_comp_list)
 
-    #         cleaned_origin_graph = filtered_only_attributes(comp, targets=config.table_features)
-    #         AugmentedComponents.extend(cleaned_origin_graph)
+            AugmentedComponents.append(comp)
 
-    #     components = AugmentedComponents.copy()
+        components = AugmentedComponents.copy()
 
-    #     del AugmentedComponents, aug_comp_list, cleaned_comp_list, final_comp_list, cleaned_origin_graph
+        plt.hist([comp.number_of_nodes() for comp in components], bins=50)
+        plt.yscale('log')
+        plt.ylabel('Number of Subgraphs (log)')
+        plt.xlabel('Number of Nodes')
+        plt.savefig("asset/subgraph_size.png")
 
-    #     print(f"Total Subgraphs found: {len(cleaned_comp_list)}")
-    #     temp = list(cleaned_comp_list[0].nodes(data=True))[0]
-    #     print(temp)
-
-    #     print(f"Components after augmentation (incl. original CC): {len(components)}")
-    #     print("============================"*2)
+        del AugmentedComponents, aug_comp_list, final_comp_list
+        
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Total Subgraphs found: {len(components)}")
+        print(f"Time taken for augmentation: {elapsed_time:.2f} seconds")
+        print(f"Components after augmentation (incl. original CC): {len(components)}")
+        print("============================"*2)
 
     # 4. Convert to PyG Data Objects
     data_list = []
@@ -190,7 +207,7 @@ def ProcessConnectedComponents(components_list, config):
     min_size = getattr(config, 'min_cc_size', 0)
     max_size = getattr(config, 'max_cc_size', float('inf'))
     
-    print(f"Filtering Components: Min {min_size} <= Nodes <= Max {max_size}")
+    # print(f"Filtering Components: Min {min_size} <= Nodes <= Max {max_size}")
 
     filtered_list = [
         g for g in components_list 
@@ -206,17 +223,20 @@ def ProcessConnectedComponents(components_list, config):
 
 def getDataLoader(data_list, config, test=False):
     if config.num_sample_nodes is None:
-        dataloader = DataLoader(data_list,
-                                batch_size=config.batch_size,
-                                pin_memory=True,
-                                num_workers=config.num_workers,
-                                shuffle=True if not test else False)
+        return DataLoader(data_list,
+                          batch_size=config.batch_size,
+                          pin_memory=True,
+                          num_workers=config.num_workers,
+                          shuffle=not test)
     else:
-        assert len(config.num_sample_nodes) > 3 # num_sample_nodes should be a larger than the number of layers
-        dataloader = NeighborLoader(data_list,
-                                    batch_size=config.batch_size,
-                                    pin_memory=True,
-                                    num_workers=config.num_workers,
-                                    num_neighbors=config.num_sample_nodes,
-                                    shuffle=True if not test else False)
-    return dataloader
+        from torch_geometric.data import Batch
+        merged_data = Batch.from_data_list(data_list)
+        
+        return NeighborLoader(
+            merged_data,
+            num_neighbors=config.num_sample_nodes,
+            batch_size=config.batch_size,
+            shuffle=not test,
+            num_workers=config.num_workers,
+            pin_memory=True
+        )
