@@ -61,7 +61,7 @@ def mutation_anchored_subgraphs(graph: nx.Graph, attribute: str, steps: int = 3,
         combined_nodes = get_nodes_from_bfs(anchor, steps, max_nodes)
         neighbors = list(graph.neighbors(anchor))
         for neighbor in neighbors:
-            neighbor_nodes = get_nodes_from_bfs(neighbor, 1, max_nodes)
+            neighbor_nodes = get_nodes_from_bfs(neighbor, 2, max_nodes)
             combined_nodes.update(neighbor_nodes)
 
         subg = graph.subgraph(list(combined_nodes)).copy()
