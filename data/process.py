@@ -1,15 +1,19 @@
 import os
+import time
+from tqdm import tqdm
 
 import pickle
 import pandas as pd
 import networkx as nx
+import matplotlib.pyplot as plt
 
 import torch
-from torch_geometric.loader import DataLoader
+from torch_geometric.loader import DataLoader, NeighborLoader
 from sklearn.model_selection import train_test_split
 
-from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes
-from utils.table_utils import make_bin_cols
+from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes, filtered_only_attributes, get_sample
+from utils.table_utils import make_bin_cols, scaling_and_fillnafeature
+from data.Augmentation import mutation_anchored_subgraphs
 
 def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     """
@@ -23,17 +27,25 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
 
     print("Graph loaded successfully")
     print(graph)
-    all_attrs = dict(graph.nodes(data=True)).copy()
-    print(all_attrs['o15392_25_trp'])
-    del all_attrs
-    del G
+    node, edge = get_sample(graph)
+    print("Node Example", node)
+    print("Edge Example", edge)
+    del G, node, edge
     print("============================"*2)
     
     # 2. Load Table Features (Node Attributes)
     df = None 
     if config.table_features is not None:
         try:
-            df = pd.read_csv(config.Feature_PATH)
+            basic_node_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_features.csv'))
+            am_node_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_features_with_am.csv'))
+            bmr_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_mutation_with_BMR_v120525.csv'))
+            bmr_df.drop(columns=['total_mutations_count', 'unique_mutation_types_count', 'unique_patients_count', 'uniprot_id'], inplace=True)
+
+            df = pd.merge(basic_node_df, am_node_df, on='node_id', how='left')
+            df = pd.merge(df, bmr_df, on='node_id', how='left')
+
+            df = scaling_and_fillnafeature(df, config.table_features)
 
             if 'mut+res-bin' in config.table_features:
                 df = make_bin_cols(df, 'mut+res-bin', bin_size=config.bin_size)
@@ -53,13 +65,55 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
 
     # 3. Split Graph into Connected Components
     print("Splitting graph into connected components...")
-    
-    components = [graph.subgraph(c).copy() for c in nx.connected_components(graph)]
+
+    components = [
+        graph.subgraph(c).copy() 
+        for c in nx.connected_components(graph) 
+        if config.min_cc_size <= len(c) <= config.max_cc_size
+    ]
     print(f"Total Components found: {len(components)}")
     
     components = ProcessConnectedComponents(components, config)
     print(f"Components after filtering size: {len(components)}")
     print("============================"*2)
+
+    AugmentedComponents = []
+
+    if config.split_to_subgraphs:
+        print("[DataAugmentation] Splitting components into small subgraphs...")
+        start_time = time.time()
+        
+        for comp in components:
+            aug_comp_list = mutation_anchored_subgraphs(
+                comp, 
+                'is_mut', 
+                config.aug_subgraph_steps, 
+                max_nodes=2000, 
+                sample_ratio=0.3,   
+                min_size=getattr(config, 'min_cc_size', 0), 
+                max_size=getattr(config, 'max_cc_size', float('inf'))
+            )
+            final_comp_list = ProcessConnectedComponents(aug_comp_list, config)
+            AugmentedComponents.extend(final_comp_list)
+
+            AugmentedComponents.append(comp)
+
+        components = AugmentedComponents.copy()
+
+        plt.hist([comp.number_of_nodes() for comp in components], bins=50)
+        plt.yscale('log')
+        plt.ylabel('Number of Subgraphs (log)')
+        plt.xlabel('Number of Nodes')
+        plt.savefig("asset/subgraph_size.png")
+
+        del AugmentedComponents, aug_comp_list, final_comp_list
+        
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Total Subgraphs found: {len(components)}")
+        print(f"Time taken for augmentation: {elapsed_time:.2f} seconds")
+        print(f"Components after augmentation (incl. original CC): {len(components)}")
+        print("============================"*2)
 
     # 4. Convert to PyG Data Objects
     data_list = []
@@ -153,7 +207,7 @@ def ProcessConnectedComponents(components_list, config):
     min_size = getattr(config, 'min_cc_size', 0)
     max_size = getattr(config, 'max_cc_size', float('inf'))
     
-    print(f"Filtering Components: Min {min_size} <= Nodes <= Max {max_size}")
+    # print(f"Filtering Components: Min {min_size} <= Nodes <= Max {max_size}")
 
     filtered_list = [
         g for g in components_list 
@@ -168,9 +222,21 @@ def ProcessConnectedComponents(components_list, config):
 
 
 def getDataLoader(data_list, config, test=False):
-    dataloader = DataLoader(data_list,
-                            batch_size=config.batch_size,
-                            pin_memory=True,
-                            num_workers=config.num_workers,
-                            shuffle=True if not test else False)
-    return dataloader
+    if config.num_sample_nodes is None:
+        return DataLoader(data_list,
+                          batch_size=config.batch_size,
+                          pin_memory=True,
+                          num_workers=config.num_workers,
+                          shuffle=not test)
+    else:
+        from torch_geometric.data import Batch
+        merged_data = Batch.from_data_list(data_list)
+        
+        return NeighborLoader(
+            merged_data,
+            num_neighbors=config.num_sample_nodes,
+            batch_size=config.batch_size,
+            shuffle=not test,
+            num_workers=config.num_workers,
+            pin_memory=True
+        )

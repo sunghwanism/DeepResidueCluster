@@ -1,7 +1,9 @@
 import networkx as nx
 from networkx.algorithms import isomorphism
 
-def mutation_anchored_subgraphs(graph: nx.Graph, attribute: str, steps: int = 3) -> list:
+import random
+
+def mutation_anchored_subgraphs(graph: nx.Graph, attribute: str, steps: int = 3, max_nodes: int = 2000, sample_ratio: float = 0.3, min_size: int = 0, max_size: int = float('inf')) -> list:
     """
     Extracts node-anchored subgraphs based on specific criteria.
     
@@ -19,51 +21,59 @@ def mutation_anchored_subgraphs(graph: nx.Graph, attribute: str, steps: int = 3)
     Returns:
         list[nx.Graph]: A list of unique (non-isomorphic) subgraphs.
     """
+
+    if graph.number_of_nodes() < 100:
+        return [graph]
+
     anchors = [n for n, data in graph.nodes(data=True) if data.get(attribute) == 1]
     unique_subgraphs = []
     
     nm = isomorphism.categorical_node_match(attribute, 0)
 
-    for anchor in anchors:
-        extended_dist = nx.single_source_shortest_path_length(graph, anchor, cutoff=steps)
-        subgraph_nodes = list(extended_dist.keys())
+    if sample_ratio < 1.0:
+        num_samples = int(len(anchors) * sample_ratio)
+        if num_samples > 0:
+            anchors = random.sample(anchors, num_samples)
+        elif anchors:
+            pass
+
+    def get_nodes_from_bfs(start_node, depth, max_len=2000):
+        visited = {start_node}
+        current_layer = {start_node}
         
-        subg = graph.subgraph(subgraph_nodes).copy()
-        
-        is_duplicate = False
-        for existing in unique_subgraphs:
-            if nx.is_isomorphic(subg, existing, node_match=nm):
-                is_duplicate = True
+        for _ in range(depth):
+            next_layer = set()
+            for node in current_layer:
+                for neighbor in graph.neighbors(node):
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        next_layer.add(neighbor)
+            
+            if len(visited) > max_len:
                 break
+            
+            current_layer = next_layer
+            if not current_layer:
+                break
+        return visited
+
+    for anchor in anchors:
+        combined_nodes = get_nodes_from_bfs(anchor, steps, max_nodes)
+        neighbors = list(graph.neighbors(anchor))
+        for neighbor in neighbors:
+            neighbor_nodes = get_nodes_from_bfs(neighbor, 1, max_nodes)
+            combined_nodes.update(neighbor_nodes)
+
+        subg = graph.subgraph(list(combined_nodes)).copy()
         
-        if not is_duplicate:
-            unique_subgraphs.append(subg)
+        if min_size <= subg.number_of_nodes() <= max_size:
+            is_duplicate = False
+            for existing in unique_subgraphs:
+                if nx.is_isomorphic(subg, existing, node_match=nm):
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
+                unique_subgraphs.append(subg)
     
-    print(f"Extracted {len(unique_subgraphs)} unique subgraphs.")
-
     return unique_subgraphs
-
-
-def DataAugmentation(graph: nx.Graph, attribute: str, steps: int = 3, strategy: List[str] = None) -> list:
-    """
-    Augments the input graph based on the specified strategies.
-    
-    Args:
-        graph (nx.Graph): The input graph.
-        attribute (str): The node attribute to check (e.g., 'is_mut').
-                         Nodes with data[attribute] == 1 are considered anchors.
-        steps (int, optional): The number of steps (hops) from the anchor to include initially. Defaults to 3.
-        strategy (List[str], optional): The strategies to apply. You can choose ['mut_anchored'] # TODO: add more strategies
-
-    Returns:
-        list[nx.Graph]: A list of unique (non-isomorphic) subgraphs.
-    """
-    
-    if strategy is None:
-        raise ValueError("No strategy specified.")
-    
-    for s in strategy:
-        if s == "mut_anchored":
-            yield mutation_anchored_subgraphs(graph, attribute, steps)
-        else:
-            raise ValueError(f"Unknown strategy: {s}")
