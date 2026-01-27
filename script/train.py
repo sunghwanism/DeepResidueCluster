@@ -25,6 +25,7 @@ def parse_args():
     parser.add_argument('--wandb_run_id', type=str, default=None, help='Wandb run id')
     parser.add_argument('--load_pretrained', action='store_true', help='Load pretrained model')
     parser.add_argument('--nowandb', action='store_true', help='Do not use wandb')
+    parser.add_argument('--use_aug', action='store_true', help='Use data augmentation')
     return parser.parse_args()
 
 

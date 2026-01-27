@@ -77,112 +77,128 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     print(f"Components after filtering size: {len(components)}")
     print("============================"*2)
 
-    AugmentedComponents = []
-
-    if config.split_to_subgraphs and not config.PreProcessDATA:
-        print("[DataAugmentation] Splitting components into small subgraphs...")
-        start_time = time.time()
-        
-        for comp in components:
-            aug_comp_list = mutation_anchored_subgraphs(
-                comp, 
-                'is_mut', 
-                config.aug_subgraph_steps, 
-                max_nodes=10000, 
-                sample_ratio=0.3,
-                min_size=getattr(config, 'min_cc_size', 4), 
-                max_size=getattr(config, 'max_cc_size', float('inf'))
-            )
-            final_comp_list = ProcessConnectedComponents(aug_comp_list, config)
-            AugmentedComponents.extend(final_comp_list)
-
-            AugmentedComponents.append(comp)
-
-        components = AugmentedComponents.copy()
-
-        plt.hist([comp.number_of_nodes() for comp in components], bins=50)
-        plt.yscale('log')
-        plt.ylabel('Number of Subgraphs (log)')
-        plt.xlabel('Number of Nodes')
-        plt.savefig("asset/subgraph_size.png")
-
-        # Save augmented components to file
-        save_path = "preprocessed_components_v0126.pkl"
-        config.PreProcessDATA = save_path
-        with open(save_path, 'wb') as f:
-            pickle.dump(components, f)
-        print(f"Saved augmented components to {save_path}")
-
-        del AugmentedComponents, aug_comp_list, final_comp_list
-        
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print(f"Total Subgraphs found: {len(components)}")
-        print(f"Time taken for augmentation: {elapsed_time:.2f} seconds")
-        print(f"Components after augmentation (incl. original CC): {len(components)}")
-        print("============================"*2)
-
-    # 4. Convert to PyG Data Objects
-    if config.PreProcessDATA:
-        with open(config.PreProcessDATA, 'rb') as f:
-            components = pickle.load(f)
-            
-    data_list = []
-    print("Converting to PyG Data objects...")
-    for comp in components:
-        pyg_obj = nx_to_pyg_data(
-            comp, 
-            node_features_df=df, 
-            label_col=config.label_col, 
-            graph_features=config.graph_features, 
-            table_features=config.table_features, 
-            use_edge_weight=config.use_edge_weight,
-            add_constant_feature=False,
-            config=config
-        )
-        data_list.append(pyg_obj)
-    
-    print("PyG Data conversion complete")
-    print("============================"*2)
-
-    # 5. Apply Data Augmentation
-    data_list = DataAugmentation(data_list, config)
-    print("Finish Data Augmentation")
-
-    # 6. Split Dataset (Train / Val / Test)
-    if only_test:
-        return data_list
-
-    # Check validity of ratios
+    # 4. Split Dataset (Train / Val / Test) BEFORE Augmentation
     if sum(config.ratio_of_data) != 1.0:
         raise ValueError("Data split ratios do not sum to 1.0")
 
-    # Split: Train+Val (remaining) / Test
-    train_val, test = train_test_split(
-        data_list, 
-        test_size=config.ratio_of_data[2], 
-        random_state=config.SEED
-    )
+    # Sort components by number of nodes (descending)
+    components.sort(key=lambda x: x.number_of_nodes(), reverse=True)
 
-    # Calculate relative validation size
-    # Val ratio relative to (Train + Val)
-    denom = config.ratio_of_data[0] + config.ratio_of_data[1]        
-    relative_val_size = config.ratio_of_data[1] / denom
+    if not only_test:
+        if not os.path.exists(os.path.join(config.PreProcessDATA, f"{config.project_name}_train.pkl")):
+            # Force top 5 into Train
+            mandatory_train = components[:5]
+            remaining_components = components[5:]
+            
+            print(f"Top 5 components (Nodes: {[c.number_of_nodes() for c in mandatory_train]}) forced into Train.")
+
+            train_val_comps, test_comps = train_test_split(
+                remaining_components, 
+                test_size=config.ratio_of_data[2], 
+                random_state=config.SEED
+            )
+            
+            denom = config.ratio_of_data[0] + config.ratio_of_data[1]        
+            relative_val_size = config.ratio_of_data[1] / denom
+            
+            train_comps, val_comps = train_test_split(
+                train_val_comps, 
+                test_size=relative_val_size, 
+                random_state=config.SEED
+            )
+            
+            # Add mandatory components to train
+            train_comps = mandatory_train + train_comps
+            
+            print(f"Split counts - Train: {len(train_comps)} (incl {len(mandatory_train)} mandatory), Val: {len(val_comps)}, Test: {len(test_comps)}")
+
+            # Save Pre-Augmentation Splits
+            for name, data in [('train', train_comps), ('val', val_comps), ('test', test_comps)]:
+                save_path = f"{config.project_name}_{name}.pkl"
+                with open(save_path, 'wb') as f:
+                    pickle.dump(data, f)
+                print(f"Saved {name} split (pre-aug) to {save_path}")
+
+        else:
+            # Load Pre-Augmentation Splits
+            train_comps = None
+            val_comps = None
+            test_comps = None
+
+            for name in ['train', 'val', 'test']:
+                save_path = os.path.join(config.PreProcessDATA, f"{config.project_name}_{name}.pkl")
+                with open(save_path, 'rb') as f:
+                    if name == 'train':
+                        train_comps = pickle.load(f)
+                    elif name == 'val':
+                        val_comps = pickle.load(f)
+                    elif name == 'test':
+                        test_comps = pickle.load(f)
+
+                print(f"Loaded {name} split (pre-aug) from {save_path}")
+
+        # 5. Data Augmentation (Only on Train)
+        if config.use_aug and config.split_to_subgraphs:
+            print("[DataAugmentation] Augmenting Training Set...")
+            start_time = time.time()
+            
+            augmented_train_comps = []
+            for comp in train_comps:
+                # Add Original
+                augmented_train_comps.append(comp)
+                
+                # Augment
+                aug_comp_list = mutation_anchored_subgraphs(
+                    comp, 
+                    'is_mut', 
+                    config.aug_subgraph_steps, 
+                    max_nodes=10000, 
+                    sample_ratio=0.3, # This might be parameterizable
+                    min_size=getattr(config, 'min_cc_size', 4), 
+                    max_size=getattr(config, 'max_cc_size', float('inf'))
+                )
+                final_aug_list = ProcessConnectedComponents(aug_comp_list, config)
+                augmented_train_comps.extend(final_aug_list)
+                
+            end_time = time.time()
+            print(f"Augmentation time: {end_time - start_time:.2f}s")
+            print(f"Train components: {len(train_comps)} -> {len(augmented_train_comps)}")
+            train_comps = augmented_train_comps
+            
+            # Save Post-Augmentation Splits (Val/Test are same as pre-aug but saved for consistency)
+            save_path = f"{config.project_name}_train_aug.pkl"
+            with open(save_path, 'wb') as f:
+                pickle.dump(train_comps, f)
+            print(f"Saved Train split (post-aug/final) to {save_path}")
+        
+    elif only_test:
+        print("Converting to PyG Data objects...")
+        test_data = convert_to_pyg(components, "Test", df, config)
+        print("Applying Feature Augmentation...")
+        test_data = FeatureAugmentation(test_data, config)
+        return test_data
+
+    # 6. Convert to PyG Data Objects
+    print("Converting to PyG Data objects...")
+
+    train_data = convert_to_pyg(train_comps, "Train", df, config)
+    val_data = convert_to_pyg(val_comps, "Val", df, config)
+    test_data = convert_to_pyg(test_comps, "Test", df, config)
+
+    # 7. Apply Feature Augmentation
+    print("Applying Feature Augmentation...")
+    train_data = FeatureAugmentation(train_data, config)
+    val_data = FeatureAugmentation(val_data, config)
+    test_data = FeatureAugmentation(test_data, config)
     
-    train, val = train_test_split(
-        train_val, 
-        test_size=relative_val_size, 
-        random_state=config.SEED
-    )
-    
-    return train, test, val
+    return train_data, test_data, val_data
 
 
-def DataAugmentation(data_list, config):
+def FeatureAugmentation(data_list, config):
     """
-    Applies structural augmentations (e.g., constant features).
+    Applies feature augmentations (e.g., constant features).
     """
-    print("Start Data Augmentation")
+    print("Start Feature Augmentation")
     augmentation_log = []
     
     # 1. Add Constant Feature
@@ -202,7 +218,7 @@ def DataAugmentation(data_list, config):
     # if config.use_virtual_node:
     #     ...
 
-    print(f"Applied Augmentations: {augmentation_log}")
+    print(f"Applied Feature Augmentations: {augmentation_log}")
     return data_list
 
 
@@ -251,3 +267,19 @@ def getDataLoader(data_list, config, test=False):
             num_workers=config.num_workers,
             pin_memory=True
         )
+
+def convert_to_pyg(comp_list, split_name, df, config):
+    pyg_list = []
+    for comp in tqdm(comp_list, desc=f"Converting {split_name}"):
+        pyg_obj = nx_to_pyg_data(
+            comp, 
+            node_features_df=df, 
+            label_col=config.label_col, 
+            graph_features=config.graph_features, 
+            table_features=config.table_features, 
+            use_edge_weight=config.use_edge_weight,
+            add_constant_feature=False,
+            config=config
+        )
+        pyg_list.append(pyg_obj)
+    return pyg_list
