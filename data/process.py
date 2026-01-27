@@ -79,7 +79,7 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
 
     AugmentedComponents = []
 
-    if config.split_to_subgraphs:
+    if config.split_to_subgraphs and not config.PreProcessDATA:
         print("[DataAugmentation] Splitting components into small subgraphs...")
         start_time = time.time()
         
@@ -106,6 +106,13 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
         plt.xlabel('Number of Nodes')
         plt.savefig("asset/subgraph_size.png")
 
+        # Save augmented components to file
+        if not config.PreProcessDATA:
+            save_path = 
+            with open(save_path, 'wb') as f:
+                pickle.dump(components, f)
+            print(f"Saved augmented components to {save_path}")
+
         del AugmentedComponents, aug_comp_list, final_comp_list
         
         end_time = time.time()
@@ -116,6 +123,10 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
         print("============================"*2)
 
     # 4. Convert to PyG Data Objects
+    if config.PreProcessDATA:
+        with open(config.PreProcessDATA, 'rb') as f:
+            components = pickle.load(f)
+            
     data_list = []
     print("Converting to PyG Data objects...")
     for comp in components:
