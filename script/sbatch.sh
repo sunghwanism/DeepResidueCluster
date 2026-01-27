@@ -28,6 +28,11 @@ export WANDB_RUN_ID=
 export WANDB_API_KEY=
 export ENTITY_NAME=
 
+### Save your wandb API key in your .bash_profile or replace $API_KEY with your actual API key.
+### Uncomment the line below and comment out "wandb offline" if running in online mode ###
+
+wandb login $WANDB_API_KEY 
+
 srun python script/train.py \
      --config_path config/run.yaml \
      --wandb_key $WANDB_API_KEY \
@@ -35,7 +40,7 @@ srun python script/train.py \
      --project_name DeepResidueCluster \
      --wandb_run_name $WANDB_RUN_ID \
      --wandb_run_id $WANDB_RUN_ID \
-     --batch_size 32 \
+     --batch_size 512 \
      --num_workers 12 \
      --nowandb
      # --load_pretrained  \
