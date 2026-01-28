@@ -59,8 +59,6 @@ class DGI(nn.Module):
         self.sigm = nn.Sigmoid()
         self.disc = Discriminator(out_dim_list[-1])
 
-        self.mixing = nn.Linear(total_in_channels, out_dim_list[0])
-
     def _get_combined_feat(self, x_numeric, uniprot_idx, bin_idx):
         u_emb = self.uniprot_embedding(uniprot_idx) # (N, emb_dim)
         b_emb = self.bin_embedding(bin_idx)       # (N, emb_dim)
@@ -73,9 +71,6 @@ class DGI(nn.Module):
         
         x = self._get_combined_feat(x_num, uniprot_idx, bin_idx)
         shuf_x = self._get_combined_feat(shuf_num, shuf_uniprot, shuf_bin)
-
-        x = self.mixing(x)
-        shuf_x = self.mixing(shuf_x)
 
         h_1 = self.gcn(x, edge_index)
         c = self.read(h_1, batch)

@@ -2,9 +2,10 @@
 import os
 import sys
 
-import argparse
-
 import yaml
+import argparse
+from pprint import pprint
+
 
 from data.process import LoadDataset, getDataLoader
 from utils.functions import init_wandb, LoadConfig, set_seed
@@ -43,6 +44,10 @@ def main(args):
     print("##################"*3)
     print("Finish Loading DataLoader")
     print("Train", len(train), "Val", len(val), "Test", len(test))
+    print("##################"*3)
+    pprint(config)
+
+
     print("##################"*3)
 
     if config.model == 'DGI':

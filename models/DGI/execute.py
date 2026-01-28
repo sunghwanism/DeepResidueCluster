@@ -131,7 +131,7 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
         BASESAVEPATH = os.path.join(config.SAVEPATH, config.model)
     
     os.makedirs(BASESAVEPATH, exist_ok=True)
-    save_path = os.path.join(BASESAVEPATH, 'BestPerformance.pkl')
+    save_path = os.path.join(BASESAVEPATH, 'BestPerformance.pth')
     
     for epoch in range(nb_epochs):
         train_loss = train_dgi_epoch(model, train_loader, optimizer, criterion, device)
@@ -143,6 +143,8 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
             for batch in val_loader:
                 batch = batch.to(device)
                 shuf_fts = shuffle_node_features(batch.x)
+                shuf_uniprot = shuffle_node_features(batch.x_cat[:, 0])
+                shuf_bin = shuffle_node_features(batch.x_cat[:, 1])
                 
                 num_nodes = batch.x.size(0)
                 lbl_1 = torch.ones(num_nodes, 1, device=device)
@@ -158,7 +160,7 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
         if len(val_loader) > 0:
             val_loss /= len(val_loader)
         
-        if epoch % 10 == 0:
+        if epoch % 2 == 0:
             print(f'Epoch {epoch:4d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}')
         
         # Early stopping based on validation loss
