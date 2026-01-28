@@ -1,41 +1,100 @@
+# import torch
+# import torch.nn as nn
+# from ..layers import DenseGCN, AvgReadout, Discriminator
+
+# class DGI(nn.Module):
+#     def __init__(self, n_in, n_h, activation):
+#         super(DGI, self).__init__()
+#         self.gcn = DenseGCN(n_in, n_h, activation)
+#         self.read = AvgReadout()
+
+#         self.sigm = nn.Sigmoid()
+
+#         self.disc = Discriminator(n_h)
+
+#     def forward(self, x, shuf_x, edge_index, batch=None, samp_bias1=None, samp_bias2=None):
+#         h_1 = self.gcn(x, edge_index)
+
+#         c = self.read(h_1, batch)
+#         c = self.sigm(c)
+
+#         h_2 = self.gcn(shuf_x, edge_index)
+
+#         # Expand c to match h_1 and h_2 shapes
+#         if batch is None:
+#             # Assuming single graph, c is (1, n_h), h_1 is (N, n_h)
+#             c_expanded = c.expand_as(h_1)
+#         else:
+#             # c is (num_graphs, n_h), map to nodes using batch from PyG
+#             c_expanded = c[batch]
+
+#         # Pass expanded c to discriminator
+#         ret = self.disc(c_expanded, h_1, h_2, samp_bias1, samp_bias2)
+
+#         return ret
+
+#     # Detach the return variables
+#     def embed(self, x, edge_index, batch=None):
+#         h_1 = self.gcn(x, edge_index)
+#         c = self.read(h_1, batch)
+
+#         return h_1.detach(), c.detach()
+
+
 import torch
 import torch.nn as nn
 from ..layers import DenseGCN, AvgReadout, Discriminator
 
 class DGI(nn.Module):
-    def __init__(self, n_in, n_h, activation):
+    def __init__(self, n_in_numeric, n_uniprot, n_bin, emb_dim_uniprot, emb_dim_bin, out_dim_list, activation):
         super(DGI, self).__init__()
-        self.gcn = DenseGCN(n_in, n_h, activation)
+        
+        self.uniprot_embedding = nn.Embedding(n_uniprot, emb_dim_uniprot)
+        self.bin_embedding = nn.Embedding(n_bin, emb_dim_bin)
+
+        total_in_channels = n_in_numeric + emb_dim_uniprot + emb_dim_bin
+        
+        self.gcn = DenseGCN(total_in_channels, out_dim_list, activation)
         self.read = AvgReadout()
-
         self.sigm = nn.Sigmoid()
+        self.disc = Discriminator(out_dim_list[-1])
 
-        self.disc = Discriminator(n_h)
+        self.mixing = nn.Linear(total_in_channels, out_dim_list[0])
 
-    def forward(self, x, shuf_x, edge_index, batch=None, samp_bias1=None, samp_bias2=None):
+    def _get_combined_feat(self, x_numeric, uniprot_idx, bin_idx):
+        u_emb = self.uniprot_embedding(uniprot_idx) # (N, emb_dim)
+        b_emb = self.bin_embedding(bin_idx)       # (N, emb_dim)
+        
+        return torch.cat([x_numeric, u_emb, b_emb], dim=1)
+
+    def forward(self, x_num, uniprot_idx, bin_idx, 
+                shuf_num, shuf_uniprot, shuf_bin, 
+                edge_index, batch=None, samp_bias1=None, samp_bias2=None):
+        
+        x = self._get_combined_feat(x_num, uniprot_idx, bin_idx)
+        shuf_x = self._get_combined_feat(shuf_num, shuf_uniprot, shuf_bin)
+
+        x = self.mixing(x)
+        shuf_x = self.mixing(shuf_x)
+
         h_1 = self.gcn(x, edge_index)
-
         c = self.read(h_1, batch)
         c = self.sigm(c)
 
         h_2 = self.gcn(shuf_x, edge_index)
 
-        # Expand c to match h_1 and h_2 shapes
         if batch is None:
-            # Assuming single graph, c is (1, n_h), h_1 is (N, n_h)
             c_expanded = c.expand_as(h_1)
         else:
-            # c is (num_graphs, n_h), map to nodes using batch from PyG
             c_expanded = c[batch]
 
-        # Pass expanded c to discriminator
         ret = self.disc(c_expanded, h_1, h_2, samp_bias1, samp_bias2)
-
         return ret
 
-    # Detach the return variables
-    def embed(self, x, edge_index, batch=None):
+    def embed(self, x_num, uniprot_idx, bin_idx, edge_index, batch=None):
+        
+        x = self._get_combined_feat(x_num, uniprot_idx, bin_idx)
+        x = self.mixing(x)
         h_1 = self.gcn(x, edge_index)
         c = self.read(h_1, batch)
-
         return h_1.detach(), c.detach()

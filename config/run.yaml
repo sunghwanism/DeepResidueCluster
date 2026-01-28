@@ -3,13 +3,12 @@ Graph_PATH:
 GraphAtt_PATH: 
 Feature_PATH: 
 SAVEPATH: 
-ENV_PATH: '../envs/DRC/bin/activate'
+ENV_PATH: 
 SEED: 42
 
 # ====================
 # Data Settings
 # ====================
-
 label_col: None
 
 # Features in Table || If you don't want to use features, set it to None
@@ -36,27 +35,34 @@ table_features:
   # AM --> To be Updated
 
 bin_size: 42
+uniprot_size: 600
 
 # Features in nx.Graph as node attributes
 graph_features:
   - degree
   - shortest_path_length
   - betweenness
-# - closeness
+  - pagerank
+  # - closeness
+
+# Noe Attribute Normalization
+node_att_norm_method: minmax # minmax or zscore
+node_att_norm_target: ['degree', 'betweenness']
 
 # Edge Setting
 use_edge_weight: False
 
 # Train Test Split [Train, Validation, Test] (sum=1)
-ratio_of_data: [0.70, 0.15, 0.15]
+ratio_of_data: [0.70, 0.10, 0.20]
  
 # Connected Component Setting
-max_cc_size: 50000
+max_cc_size: 500000000
 min_cc_size: 4
 
 # ====================
 # Data Augmentation
 # ====================
+use_aug: True
 add_const_to_node: True
 split_to_subgraphs: 
   - mut_anchored

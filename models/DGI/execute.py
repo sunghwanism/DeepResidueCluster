@@ -31,6 +31,8 @@ def train_dgi_epoch(model, loader, optimizer, criterion, device):
         
         # Shuffle features for negative sampling
         shuf_fts = shuffle_node_features(batch.x)
+        shuf_uniprot = shuffle_node_features(batch.x_cat[:, 0])
+        shuf_bin = shuffle_node_features(batch.x_cat[:, 1])
         
         # Create labels: 1 for real, 0 for fake
         num_nodes = batch.x.size(0)
@@ -38,7 +40,9 @@ def train_dgi_epoch(model, loader, optimizer, criterion, device):
         lbl_2 = torch.zeros(num_nodes, 1, device=device)
         lbl = torch.cat((lbl_1, lbl_2), 0)
         
-        logits = model(batch.x, shuf_fts, batch.edge_index, batch.batch, None, None)
+        logits = model(batch.x, batch.x_cat[:, 0], batch.x_cat[:, 1], 
+                       shuf_fts, shuf_uniprot, shuf_bin, 
+                       batch.edge_index, batch.batch, None, None)
         
         loss = criterion(logits, lbl)
         loss.backward()
@@ -84,7 +88,7 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
     patience = config.patience
     lr = config.lr
     l2_coef = config.l2_coef
-    hid_units = config.hid_units
+    hid_units = config.hidden_dims
     nonlinearity = config.nonlinearity
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -98,17 +102,17 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
 
     # Get feature size from first batch
     first_batch = next(iter(train_loader))
-    ft_size = first_batch.x.size(1)
+    num_ft_size = first_batch.x.size(1)
     cat_ft_size = first_batch.x_cat.size(1)
 
     # for key, values in first_batch.items():
     #     print(key, ':', values.shape)
     print("============================"*2)
-    print(f"Feature dimension: Numerical: {ft_size} + Categorical: {cat_ft_size}")
+    print(f"Feature dimension: Numerical: {num_ft_size} + Categorical: {cat_ft_size}")
     print(f"Hidden units: {hid_units}")
     
     # Initialize model
-    model = DGI(ft_size, hid_units, nonlinearity).to(device)
+    model = DGI(num_ft_size, config.uniprot_size, config.bin_size, config.emb_dim_uniprot, config.emb_dim_bin, hid_units, nonlinearity).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=l2_coef)
     criterion = nn.BCEWithLogitsLoss()
     
@@ -122,7 +126,7 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
     cnt_wait = 0
     
     if run_wandb:
-        BASESAVEPATH = os.path.join(config.SAVEPATH, config.model, run_wandb.id) # train-1
+        BASESAVEPATH = os.path.join(config.SAVEPATH, config.model, run_wandb.id) # train-`1`
     else:
         BASESAVEPATH = os.path.join(config.SAVEPATH, config.model)
     
@@ -145,7 +149,9 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
                 lbl_2 = torch.zeros(num_nodes, 1, device=device)
                 lbl = torch.cat((lbl_1, lbl_2), 0)
                 
-                logits = model(batch.x, shuf_fts, batch.edge_index, batch.batch, None, None)
+                logits = model(batch.x, batch.x_cat[:, 0], batch.x_cat[:, 1], 
+                               shuf_fts, shuf_uniprot, shuf_bin, 
+                               batch.edge_index, batch.batch, None, None)
                 loss = criterion(logits, lbl)
                 val_loss += loss.item()
         

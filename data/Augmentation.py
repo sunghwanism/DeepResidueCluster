@@ -3,7 +3,7 @@ from networkx.algorithms import isomorphism
 
 import random
 
-def mutation_anchored_subgraphs(graph: nx.Graph, attribute: str, steps: int = 3, max_nodes: int = 2000, sample_ratio: float = 0.3, min_size: int = 0, max_size: int = float('inf')) -> list:
+def mutation_anchored_subgraphs(graph: nx.Graph, attribute: str, steps: int = 3, sample_ratio: float = 0.3, min_size: int = 0, max_size: int = float('inf')) -> list:
     """
     Extracts node-anchored subgraphs based on specific criteria.
     
@@ -58,13 +58,17 @@ def mutation_anchored_subgraphs(graph: nx.Graph, attribute: str, steps: int = 3,
         return visited
 
     for anchor in anchors:
-        combined_nodes = get_nodes_from_bfs(anchor, steps, max_nodes)
+        combined_nodes = get_nodes_from_bfs(anchor, steps, max_size)
         neighbors = list(graph.neighbors(anchor))
         for neighbor in neighbors:
-            neighbor_nodes = get_nodes_from_bfs(neighbor, 2, max_nodes)
+            neighbor_nodes = get_nodes_from_bfs(neighbor, 1, max_size)
             combined_nodes.update(neighbor_nodes)
 
         subg = graph.subgraph(list(combined_nodes)).copy()
+        # unique_count = len({n.split("_")[0] for n in subg.nodes()}) # Consider only inter-chain
+
+        # if unique_count < 2:
+        #     continue
         
         if min_size <= subg.number_of_nodes() <= max_size:
             is_duplicate = False
@@ -74,6 +78,8 @@ def mutation_anchored_subgraphs(graph: nx.Graph, attribute: str, steps: int = 3,
                     break
             
             if not is_duplicate:
+                if len(list(nx.connected_components(subg))) > 1:
+                    continue
                 unique_subgraphs.append(subg)
     
     return unique_subgraphs
