@@ -25,6 +25,9 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     G = loadGraph(config.Graph_PATH)
     graph = merge_graph_attributes(G, config)
 
+    # Normalize node attributes
+    graph = normalize_node_attribute(graph, config.node_att_norm_target, method=config.node_att_norm_method)
+
     print("Graph loaded successfully")
     print(graph)
     node, edge = get_sample(graph)

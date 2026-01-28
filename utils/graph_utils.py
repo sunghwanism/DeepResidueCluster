@@ -303,3 +303,44 @@ def get_sample(G):
     sample_node = next(iter(G.nodes))
     sample_edge = next(iter(G.edges))
     return sample_node, sample_edge
+
+def normalize_node_attribute(G, att_name_list, method='minmax'):
+
+    graph = G.copy()
+    Success_target = []
+
+    for att_name in att_name_list:
+
+        try:
+            nodes = list(graph.nodes())
+            values = np.array([graph.nodes[n].get(att_name, 0) for n in nodes], dtype=float)
+
+            if method == 'minmax':
+                min_val = np.min(values)
+                max_val = np.max(values)
+                if max_val - min_val == 0:
+                    norm_values = values - min_val
+                else:
+                    norm_values = (values - min_val) / (max_val - min_val)
+            
+            elif method == 'zscore':
+                mean_val = np.mean(values)
+                std_val = np.std(values)
+                if std_val == 0:
+                    norm_values = values - mean_val
+                else:
+                    norm_values = (values - mean_val) / std_val
+
+            for i, n in enumerate(nodes):
+                graph.nodes[n][att_name] = float(norm_values[i])
+            
+            Success_target.append(att_name)
+        
+        except Exception as e:
+            print(f"Failed to normalize attribute '{att_name} | using {method}': {str(e)}")
+            continue
+    print("============================ "*2)
+    print(f"Attributes '{Success_target}' normalized using {method}.")
+    print("============================ "*2)
+
+    return graph
