@@ -167,9 +167,9 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
                         comp, 
                         'is_mut',
                         config.aug_subgraph_steps, 
-                        sample_ratio=0.2, # This might be parameterizable
+                        sample_ratio=0.1, # This might be parameterizable
                         min_size=4, 
-                        max_size=5000
+                        max_size=2000
                     )
                     final_aug_list = ProcessConnectedComponents(aug_comp_list, config)
                     augmented_train_comps.extend(final_aug_list)

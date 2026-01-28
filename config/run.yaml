@@ -35,7 +35,7 @@ table_features:
   # AM --> To be Updated
 
 bin_size: 42
-uniprot_size: 600
+uniprot_size: 800
 
 # Features in nx.Graph as node attributes
 graph_features:

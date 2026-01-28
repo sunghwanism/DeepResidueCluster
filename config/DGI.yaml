@@ -1,11 +1,11 @@
 epoch: 1000
 patience: 50
-lr: 0.001
+lr: 0.0001
 l2_coef: 0.0
 drop_prob: 0.0
 hid_units: 512
 nonlinearity: 'prelu'
-emb_dim_uniprot: 32
+emb_dim_uniprot: 16
 emb_dim_bin: 8
-num_sample_nodes: [20, 15, 10]
-hidden_dims: [256, 256, 512]
+num_sample_nodes: [10, 5, 3]
+hidden_dims: [128, 256, 512]
