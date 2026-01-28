@@ -11,7 +11,7 @@ import torch
 from torch_geometric.loader import DataLoader, NeighborLoader
 from sklearn.model_selection import train_test_split
 
-from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes, filtered_only_attributes, get_sample
+from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes, filtered_only_attributes, get_sample, normalize_node_attribute
 from utils.table_utils import make_bin_cols, scaling_and_fillnafeature
 from data.Augmentation import mutation_anchored_subgraphs
 
@@ -129,47 +129,58 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
                 save_path = f"{config.project_name}_{name}.pkl"
                 with open(save_path, 'rb') as f:
                     if name == 'train':
-                        train_comps = pickle.load(f)
+                        if config.use_aug and os.path.exists(f'{config.project_name}_train_aug.pkl'):
+                            save_path = f'{config.project_name}_train_aug.pkl'
+                            with open(save_path, 'rb') as f:
+                                train_comps = pickle.load(f)
+                        else:
+                            train_comps = pickle.load(f)
                     elif name == 'val':
                         val_comps = pickle.load(f)
                     elif name == 'test':
                         test_comps = pickle.load(f)
 
-                print(f"Loaded {name} split (pre-aug) from {save_path}")
+                if config.use_aug:
+                    print(f"Loaded {name} split (augmented) from {save_path}")
+                else:
+                    print(f"Loaded {name} split (pre-augmented) from {save_path}")
 
         # 5. Data Augmentation (Only on Train)
         if config.use_aug and config.split_to_subgraphs:
-            print("[DataAugmentation] Augmenting Training Set...")
-            start_time = time.time()
-            
-            augmented_train_comps = []
-            for comp in train_comps:
-                # Add Original
-                augmented_train_comps.append(comp)
+            if os.path.exists(f'{config.project_name}_train_aug.pkl'):
+                pass
+
+            else:
+                print("[DataAugmentation] Augmenting Training Set...")
+                start_time = time.time()
                 
-                # Augment
-                aug_comp_list = mutation_anchored_subgraphs(
-                    comp, 
-                    'is_mut', 
-                    config.aug_subgraph_steps, 
-                    max_nodes=10000, 
-                    sample_ratio=0.3, # This might be parameterizable
-                    min_size=getattr(config, 'min_cc_size', 4), 
-                    max_size=getattr(config, 'max_cc_size', float('inf'))
-                )
-                final_aug_list = ProcessConnectedComponents(aug_comp_list, config)
-                augmented_train_comps.extend(final_aug_list)
+                augmented_train_comps = []
+                for comp in train_comps:
+                    # Add Original
+                    augmented_train_comps.append(comp)
+                    
+                    # Augment
+                    aug_comp_list = mutation_anchored_subgraphs(
+                        comp, 
+                        'is_mut',
+                        config.aug_subgraph_steps, 
+                        sample_ratio=0.2, # This might be parameterizable
+                        min_size=4, 
+                        max_size=5000
+                    )
+                    final_aug_list = ProcessConnectedComponents(aug_comp_list, config)
+                    augmented_train_comps.extend(final_aug_list)
+                    
+                end_time = time.time()
+                print(f"Augmentation time: {end_time - start_time:.2f}s")
+                print(f"Train components: {len(train_comps)} -> {len(augmented_train_comps)}")
+                train_comps = augmented_train_comps
                 
-            end_time = time.time()
-            print(f"Augmentation time: {end_time - start_time:.2f}s")
-            print(f"Train components: {len(train_comps)} -> {len(augmented_train_comps)}")
-            train_comps = augmented_train_comps
-            
-            # Save Post-Augmentation Splits (Val/Test are same as pre-aug but saved for consistency)
-            save_path = f"{config.project_name}_train_aug.pkl"
-            with open(save_path, 'wb') as f:
-                pickle.dump(train_comps, f)
-            print(f"Saved Train split (post-aug/final) to {save_path}")
+                # Save Post-Augmentation Splits (Val/Test are same as pre-aug but saved for consistency)
+                save_path = f"{config.project_name}_train_aug.pkl"
+                with open(save_path, 'wb') as f:
+                    pickle.dump(train_comps, f)
+                print(f"Saved Train split (post-aug/final) to {save_path}")
         
     elif only_test:
         print("Converting to PyG Data objects...")
@@ -182,8 +193,11 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     print("Converting to PyG Data objects...")
 
     train_data = convert_to_pyg(train_comps, "Train", df, config)
+    print(f"Finish Train Data Conversion to PyG")
     val_data = convert_to_pyg(val_comps, "Val", df, config)
+    print(f"Finish Val Data Conversion to PyG")
     test_data = convert_to_pyg(test_comps, "Test", df, config)
+    print(f"Finish Test Data Conversion to PyG")
 
     # 7. Apply Feature Augmentation
     print("Applying Feature Augmentation...")
@@ -270,7 +284,7 @@ def getDataLoader(data_list, config, test=False):
 
 def convert_to_pyg(comp_list, split_name, df, config):
     pyg_list = []
-    for comp in tqdm(comp_list, desc=f"Converting {split_name}"):
+    for comp in comp_list:
         pyg_obj = nx_to_pyg_data(
             comp, 
             node_features_df=df, 
