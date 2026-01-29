@@ -33,21 +33,21 @@ def init_wandb(config):
     }
 
     if config.load_pretrained:
+        assert config.wandb_run_id is not None "wandb_run_id is not provided"
         run = wandb.init(
             **init_args,
             id=config.wandb_run_id,
             resume='must',
-            reinit=True
+            reinit=True,
+            settings=wandb.Settings(init_timeout=60)
         )
 
     else:
         run = wandb.init(
             **init_args,
             config=config,
-            id=config.wandb_run_id,
+            settings=wandb.Settings(init_timeout=60)
             )
-
-    config.wandb_url = run.get_url()
     
     return run
 

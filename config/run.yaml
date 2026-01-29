@@ -43,11 +43,11 @@ graph_features:
   - shortest_path_length
   - betweenness
   - pagerank
-  # - closeness
+  - closeness_centrality
 
 # Noe Attribute Normalization
 node_att_norm_method: minmax # minmax or zscore
-node_att_norm_target: ['degree', 'betweenness']
+node_att_norm_target: ['degree', 'betweenness', 'closeness_centrality']
 
 # Edge Setting
 use_edge_weight: False

@@ -171,6 +171,8 @@ def merge_graph_attributes(rawG, config):
             # Normalize specific feature names (e.g., shortest_path_length)
             if 'shortest_path_length' in att_name:
                 display_name = 'shortest_path_length'
+            if 'closeness' in att_name:
+                display_name = 'closeness_centrality'
             else:
                 display_name = att_name
 

@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=DGI-emb_sanity_check
-#SBATCH --output=logs/DGI-emb_sanity_check.txt
+#SBATCH --job-name=DGI-emb_Training-
+#SBATCH --output=logs/DGI-emb_Training-.txt
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
 #SBATCH --time=01:00:00
@@ -23,7 +23,7 @@ export NX_CUGRAPH_AUTOCONFIG=True
 export NETWORKX_FALLBACK_TO_NX=True # Change GPU to CPU, if GPU is not available
 
 # NEED to set for wandb
-export WANDB_RUN_ID="SanityCheck-1"
+export WANDB_RUN_ID=
 export WANDB_API_KEY=
 export ENTITY_NAME=
 
@@ -39,7 +39,7 @@ srun python script/train.py \
      --project_name DeepResidueCluster \
      --wandb_run_name $WANDB_RUN_ID \
      --wandb_run_id $WANDB_RUN_ID \
-     --batch_size 64 \
+     --batch_size 256 \
      --num_workers 16 \
      --nowandb \
      --use_aug
