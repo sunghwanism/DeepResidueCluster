@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=DGI-emb_sanity_check3
-#SBATCH --output=logs/DGI-emb_sanity_check3.txt
+#SBATCH --job-name=DataGenerator
+#SBATCH --output=logs/DataGenerator.txt
 #SBATCH --nodes=1
-#SBATCH --gpus-per-node=1
-#SBATCH --time=01:00:00
+#SBATCH --ntasks=1
+#SBATCH --time=00:15:00
 #SBATCH --partition=debug
 
 # move to base PATH
@@ -11,10 +11,6 @@ cd $SCRATCH/shmoon/DeepResidueCluster
 
 # Load module
 module load StdEnv/2023  nvhpc/25.1  openmpi/5.0.3
-module load cuda/12.6
-
-srun nproc
-srun nvidia-smi
 
 source $SCRATCH/shmoon/envs/DRC/bin/activate
 
@@ -27,11 +23,7 @@ export WANDB_RUN_NAME="EnterYourRunName"
 export WANDB_API_KEY="EnterYourWandbApiKey"
 export ENTITY_NAME="EnterYourWandbEntityName"
 
-# [Important]
-# If you want to load_pretrained model, you need to set WANDB_RUN_ID
-# export WANDB_RUN_ID=""
-
-srun python script/train.py \
+srun python script/runData.py \
      --config_path config/run.yaml \
      --wandb_key $WANDB_API_KEY \
      --entity_name $ENTITY_NAME \
@@ -41,5 +33,3 @@ srun python script/train.py \
      --num_workers 16 \
      --nowandb \
      --use_aug
-     # --load_pretrained  \
-     # --wandb_run_id $WANDB_RUN_ID \
