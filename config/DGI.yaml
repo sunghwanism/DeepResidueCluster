@@ -5,7 +5,7 @@ l2_coef: 0.0
 drop_prob: 0.0
 hid_units: 512
 nonlinearity: 'prelu'
-emb_dim_uniprot: 16
+emb_dim_uniprot: 32
 emb_dim_bin: 8
-num_sample_nodes: [20, 15, 10]
+num_sample_nodes: [25, 20, 15]
 hidden_dims: [128, 256, 512]
