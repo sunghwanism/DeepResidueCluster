@@ -170,20 +170,25 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
             cnt_wait = 0
             torch.save(model.state_dict(), save_path)
             if run_wandb:
-                run_wandb.run.summary["best_val_loss"] = best_loss
-                run_wandb.run.summary["best_epoch"] = best_epoch
+                run_wandb.summary["best_val_loss"] = best_loss
+                run_wandb.summary["best_epoch"] = best_epoch
         else:
             cnt_wait += 1
 
         if run_wandb:
-            run_wandb.log({"train_loss": train_loss})
-            run_wandb.log({"val_loss": val_loss})
+            run_wandb.log({
+                "epoch": epoch, 
+                "train_loss": train_loss,
+                "val_loss": val_loss
+            })
         
         if cnt_wait >= patience:
             print("=========="*10)
             print(f'\nEarly stopping at epoch {epoch}')
             print("=========="*10)
             break
+        
+        torch.save(model.state_dict(), os.path.join(BASESAVEPATH, f'checkpoint_{epoch}.pth'))
         
     print("##########"*10)
     print(f'\nBest epoch: {best_epoch}, Best val loss: {best_loss:.4f}')

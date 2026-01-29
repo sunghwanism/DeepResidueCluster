@@ -29,12 +29,12 @@ def parse_args():
     parser.add_argument('--use_aug', action='store_true', help='Use data augmentation')
     return parser.parse_args()
 
-
 def main(args):
     config = LoadConfig(args)
     set_seed(config.SEED)
     run_wandb = init_wandb(config)
 
+    print('============================'*2)
     # Load Data
     train, test, val = LoadDataset(config, only_test=False, clear_att_in_orginG=True)
     trainLoader = getDataLoader(train, config)
