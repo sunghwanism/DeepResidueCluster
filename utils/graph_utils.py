@@ -166,12 +166,12 @@ def merge_graph_attributes(rawG, config):
         # 1. Filter files by naming convention
         if pkl.endswith('.pkl') and pkl.startswith('graph_with_'):
             # Extract internal attribute name from filename
-            att_name = pkl.removeprefix("graph_with_").removesuffix(".pkl")
+            att_name = str(pkl.removeprefix("graph_with_").removesuffix(".pkl"))
             
             # Normalize specific feature names (e.g., shortest_path_length)
             if 'shortest_path_length' in att_name:
                 display_name = 'shortest_path_length'
-            if 'closeness' in att_name:
+            elif 'closeness' in att_name:
                 display_name = 'closeness_centrality'
             else:
                 display_name = att_name
@@ -306,12 +306,18 @@ def get_sample(G):
     sample_edge = next(iter(G.edges))
     return sample_node, sample_edge
 
-def normalize_node_attribute(G, att_name_list, method='minmax'):
+def normalize_node_attribute(G, all_node_att, att_name_list, method='minmax'):
 
     graph = G.copy()
     Success_target = []
 
-    for att_name in att_name_list:
+    for att_name in all_node_att:
+
+        if att_name not in att_name_list:
+            nodes = list(graph.nodes())
+            for i, n in enumerate(nodes):
+                graph.nodes[n][att_name] = G.nodes[n][att_name]
+            continue
 
         try:
             nodes = list(graph.nodes())
