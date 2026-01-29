@@ -3,6 +3,7 @@ config/run.yaml
 logs/*
 Notebook.ipynb
 dataFolder/**/**/*
+wandb/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

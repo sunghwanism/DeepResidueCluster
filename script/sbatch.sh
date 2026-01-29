@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --account=ctb-panch_gpu
-#SBATCH --job-name=DGI-emb_Training-1
-#SBATCH --output=logs/DGI-emb_Training-1.txt
+#SBATCH --job-name=DGI-emb_Training-rmLocation-ft14
+#SBATCH --output=logs/DGI-emb_Training-rmLocation-ft14.txt
 #SBATCH --nodes=1
-#SBATCH --gpus-per-node=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=8G
-#SBATCH --time=00:15:00
+#SBATCH --gpus-per-node=h100:1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=7G
+#SBATCH --time=11:59:00
 
 # move to base PATH
 cd $SCRATCH/shmoon/DeepResidueCluster
@@ -25,9 +25,9 @@ export NX_CUGRAPH_AUTOCONFIG=True
 export NETWORKX_FALLBACK_TO_NX=True # Change GPU to CPU, if GPU is not available
 
 # NEED to set for wandb
-export WANDB_RUN_NAME="Training-1_excpt_clossness"
-export WANDB_API_KEY=
-export ENTITY_NAME=
+export WANDB_RUN_NAME=""
+export WANDB_API_KEY=""
+export ENTITY_NAME=""
 
 # [Important]
 # If you want to load_pretrained model, you need to set WANDB_RUN_ID
@@ -39,8 +39,8 @@ srun python script/train.py \
      --entity_name $ENTITY_NAME \
      --project_name DeepResidueCluster \
      --wandb_run_name $WANDB_RUN_NAME \
-     --batch_size 512 \
-     --num_workers 8 \
+     --batch_size 256 \
+     --num_workers 2 \
      --use_aug \
      # --load_pretrained \
      # --wandb_run_id $WANDB_RUN_ID \

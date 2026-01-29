@@ -40,10 +40,10 @@ uniprot_size: 800
 # Features in nx.Graph as node attributes
 graph_features:
   - degree
-  - shortest_path_length
   - betweenness
   - pagerank
   - closeness_centrality
+  - shortest_path_length
 
 # Noe Attribute Normalization
 node_att_norm_method: minmax # minmax or zscore

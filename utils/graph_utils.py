@@ -225,8 +225,6 @@ def merge_graph_attributes(rawG, config):
             print(f"CRITICAL: Feature '{feat}' is missing in {len(missing_nodes)} nodes! Dropping from list.")
 
     print("Final Filtered Features for PyG conversion: ", final_verified_features)
-    print('============================ '*2)
-
 
     if config.split_to_subgraphs:
         df = pd.read_csv(config.Feature_PATH+'node_mutation_with_BMR_v120525.csv',)

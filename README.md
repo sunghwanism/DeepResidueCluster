@@ -21,10 +21,13 @@ pip install -e .
 The features should be annotated in the graph as node attributes. Used features are specified in the config file.
 Example: 
 - Graph: NetworkX graph object
-    - Node features: ```degree```, ```pagerank```, ```closeness```, ```avgShortestPath```
+    - Node features: ```degree```, ```pagerank```, ```closeness```, ```avgShortestPath```, ```betweenness```
 
 - Features: DataFrame object
-    - 
+    - Mutation Related Features (5)
+    - Residue Location Features (7)
+    - Residue Property Features (3)
+    - Constant Features (1)
 
 # Execution
 ```bash
