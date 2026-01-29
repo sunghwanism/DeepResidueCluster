@@ -23,17 +23,17 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
 
     # 1. Load Graph Structure
     G = loadGraph(config.Graph_PATH)
-    graph = merge_graph_attributes(G, config)
+    mergedG = merge_graph_attributes(G, config)
 
     # Normalize node attributes
-    graph = normalize_node_attribute(graph, config.node_att_norm_target, method=config.node_att_norm_method)
+    graph = normalize_node_attribute(mergedG, config.graph_features, config.node_att_norm_target, method=config.node_att_norm_method)
 
     print("Graph loaded successfully")
     print(graph)
     node, edge = get_sample(graph)
     print("Node Example", node)
     print("Edge Example", edge)
-    del G, node, edge
+    del G, node, edge, mergedG
     print("============================"*2)
     
     # 2. Load Table Features (Node Attributes)

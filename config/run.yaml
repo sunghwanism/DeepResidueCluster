@@ -47,7 +47,7 @@ graph_features:
 
 # Noe Attribute Normalization
 node_att_norm_method: minmax # minmax or zscore
-node_att_norm_target: ['degree', 'betweenness', 'closeness_centrality']
+node_att_norm_target: ['degree', 'betweenness', 'closeness_centrality', 'pagerank']
 
 # Edge Setting
 use_edge_weight: False
