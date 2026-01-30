@@ -90,6 +90,7 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
     l2_coef = config.l2_coef
     hid_units = config.hidden_dims
     nonlinearity = config.nonlinearity
+    drop_prob = config.drop_prob
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print("============================"*2)
@@ -112,7 +113,7 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
     print(f"Hidden units: {hid_units}")
     
     # Initialize model
-    model = DGI(num_ft_size, config.uniprot_size, config.bin_size, config.emb_dim_uniprot, config.emb_dim_bin, hid_units, nonlinearity).to(device)
+    model = DGI(num_ft_size, config.uniprot_size, config.bin_size, config.emb_dim_uniprot, config.emb_dim_bin, hid_units, nonlinearity, drop_prob).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=l2_coef)
     criterion = nn.BCEWithLogitsLoss()
     
@@ -160,7 +161,7 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
         if len(val_loader) > 0:
             val_loss /= len(val_loader)
         
-        if epoch % 2 == 0:
+        if epoch % 10 == 0:
             print(f'Epoch {epoch:4d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}')
         
         # Early stopping based on validation loss
@@ -173,7 +174,8 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
                 run_wandb.summary["best_val_loss"] = best_loss
                 run_wandb.summary["best_epoch"] = best_epoch
         else:
-            cnt_wait += 1
+            if epoch > 4: # wait for 5 epochs to start early stopping
+                cnt_wait += 1
 
         if run_wandb:
             run_wandb.log({
