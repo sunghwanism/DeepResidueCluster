@@ -163,9 +163,10 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
         
         if epoch % 10 == 0:
             print(f'Epoch {epoch:4d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}')
+            torch.save(model.state_dict(), os.path.join(BASESAVEPATH, f'checkpoint_{epoch}.pth'))
         
         # Early stopping based on validation loss
-        if val_loss < best_loss:
+        if val_loss < best_loss and epoch > 4:
             best_loss = val_loss
             best_epoch = epoch
             cnt_wait = 0
@@ -190,7 +191,6 @@ def run_training(config, train_loader, val_loader, test_loader, run_wandb=None):
             print("=========="*10)
             break
         
-        torch.save(model.state_dict(), os.path.join(BASESAVEPATH, f'checkpoint_{epoch}.pth'))
         
     print("##########"*10)
     print(f'\nBest epoch: {best_epoch}, Best val loss: {best_loss:.4f}')
