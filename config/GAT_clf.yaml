@@ -1,0 +1,11 @@
+epoch: 500
+patience: 50
+lr: 0.001
+l2_coef: 0.00001
+drop_prob: 0.5
+nonlinearity: 'prelu'
+emb_dim_uniprot: 32
+emb_dim_bin: 8
+num_sample_nodes: [5, 5, 10]
+hidden_dims: [128, 256, 512]
+heads: [4, 4, 4]
