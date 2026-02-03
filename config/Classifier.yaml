@@ -1,0 +1,37 @@
+# ====================
+# Model
+# ====================
+load_model: 'DGI'
+clf_model: 'FFN'
+n_cls: 2 # Driver or Passenger
+
+# ====================
+# FNN
+# ====================
+ds_out_ft_list: [256, 128]
+ds_activation: 'relu'
+ds_drop_prob: 0.3
+
+
+# ====================
+# GAT
+# ====================
+out_ft_list: [256, 128]
+activation: 'relu'
+drop_prob: 0.3
+heads: 4
+
+
+# ====================
+# Driver Dataset
+# ====================
+reference_data: 'all'
+
+# Paths to reference data files
+data_paths:
+  MutaGene: './reference/MutaGene_Benchmark.csv'
+  COSMIC: './reference/CosmicMutantExport.tsv.gz'
+  ChemPlus: './reference/CHASMplus.xlsx'
+
+# Threshold for COSMIC score -> Driver/Passenger
+score_threshold: 0.8
