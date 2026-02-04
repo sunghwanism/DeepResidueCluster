@@ -101,6 +101,8 @@ def run_single_hhblits(args):
     if os.path.exists(output_hhm):
         return f"Skipped: {os.path.basename(output_hhm)}"
 
+    db_path = os.path.join(db_path, "UniRef30_2023_02")
+
     cmd = [
         "hhblits",
         "-i", fasta_path,
@@ -118,19 +120,22 @@ def run_single_hhblits(args):
     except subprocess.CalledProcessError as e:
         return f"Error in {os.path.basename(fasta_path)}: {e}"
 
-def extract_hmm_parallel(fasta_files, db_path, hmm_dir, max_workers=192):
+def extract_hmm_parallel(fasta_dir, hmm_dir, db_path, max_workers=192):
     os.makedirs(hmm_dir, exist_ok=True)
     
     tasks = []
+    fasta_files = os.listdir(fasta_dir)
+
     for fasta_path in fasta_files:
+        print(f"Processing {fasta_path}")
         protein_id = os.path.basename(fasta_path).replace(".fasta", "")
         output_hhm = os.path.join(hmm_dir, f"{protein_id}.hhm")
-        tasks.append((fasta_path, db_path, output_hhm))
+        tasks.append((os.path.join(fasta_dir, fasta_path), db_path, output_hhm))
 
     results = []
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(run_single_hhblits, tasks))
-    
+    print(results)
     return results
 
 # For Parallel Process
@@ -148,15 +153,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if 'split' in args.jobs:
+        print("Run split job")
         assert args.raw_fasta is not None, "raw_fasta is required for split job"
         split_fasta(args.raw_fasta, args.fasta_dir)
 
     if 'pssm' in args.jobs:
+        print("Run pssm job")
         assert args.nr_db_path is not None, "nr_db_path is required for pssm job"
         assert args.pssm_dir is not None, "pssm_dir is required for pssm job"
         extract_pssm_parallel(args.fasta_dir, args.pssm_dir, args.nr_db_path, max_workers=args.workers)
         
     if 'hmm' in args.jobs:
+        print("Run hmm job")
         assert args.uniref_db_path is not None, "uniref_db_path is required for hmm job"
         assert args.hmm_dir is not None, "hmm_dir is required for hmm job"
         extract_hmm_parallel(args.fasta_dir, args.hmm_dir, args.uniref_db_path, max_workers=args.workers)
