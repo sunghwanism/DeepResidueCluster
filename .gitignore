@@ -4,6 +4,8 @@ logs/*
 Notebook.ipynb
 dataFolder/**/**/*
 wandb/*
+ncbi*
+*.fasta
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
