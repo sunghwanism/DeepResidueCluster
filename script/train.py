@@ -6,7 +6,7 @@ import yaml
 import argparse
 from pprint import pprint
 
-
+from data.pairGenerator import GraphPairDataset
 from data.process import LoadDataset, getDataLoader
 from utils.functions import init_wandb, LoadConfig, set_seed
 
@@ -37,9 +37,14 @@ def main(args):
     print('============================'*2)
     # Load Data
     train, test, val = LoadDataset(config, only_test=False, clear_att_in_orginG=True)
-    trainLoader = getDataLoader(train, config)
-    valLoader = getDataLoader(val, config, test=True) # test=True makes shuffle=False
-    testLoader = getDataLoader(test, config, test=True) # test=True makes shuffle=False
+    if config.model == 'DGI':
+        trainLoader = getDataLoader(train, config)
+        valLoader = getDataLoader(val, config, test=True) # test=True makes shuffle=False
+        testLoader = getDataLoader(test, config, test=True) # test=True makes shuffle=False
+
+    elif config.model == 'proposed_model':
+        trainLoader, valLoader, testLoader = get_contrastive_loaders(train, test, val, config)
+        # inference_loader = get_contrastive_loader(dummy_dataset, config, shuffle=False)
 
     print("##################"*3)
     print("Finish Loading DataLoader")
@@ -47,15 +52,18 @@ def main(args):
     print("##################"*3)
     pprint(config)
 
-
     print("##################"*3)
 
     if config.model == 'DGI':
         from models.DGI.execute import run_training
         run_training(config, trainLoader, valLoader, testLoader, run_wandb)
 
+    elif config.model == 'proposed_model':
+        from models.proposed_model.execute import run_training
+        run_training(config, trainLoader, valLoader, testLoader, run_wandb)
+
     else:
-        raise ValueError(f"Unknown model: {config.model} || Select from ['DGI','node2vec']")
+        raise ValueError(f"Unknown model: {config.model} || Select from ['DGI','proposed_model']")
 
     # Finish wandb run
     if run_wandb:
