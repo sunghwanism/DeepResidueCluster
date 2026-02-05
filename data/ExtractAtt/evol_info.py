@@ -48,6 +48,10 @@ def extract_pssm(fasta_dir, pssm_dir, db_path,):
         if fasta_file.endswith(".fasta"):
             protein_id = fasta_file.split(".")[0]
             output_pssm = os.path.join(pssm_dir, f"{protein_id}.pssm")
+
+            if os.path.exists(output_pssm):
+                print(f"PSSM already exists for {protein_id}. Skipping.")
+                continue
             
             cmd = [
                 "psiblast",
