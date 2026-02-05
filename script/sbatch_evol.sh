@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --account=def-panch
-#SBATCH --job-name=evol_process2
-#SBATCH --output=logs/evol_process2.txt
+#SBATCH --job-name=evol_pssm
+#SBATCH --output=logs/evol_pssm_%j.txt
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=95
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=1G
-#SBATCH --time=23:59:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=192
+#SBATCH --mem=200G
+#SBATCH --time=23:50:00
 
 # load environment variables
 source ~/.bashrc
@@ -29,8 +29,8 @@ srun python data/ExtractAtt/evol_info.py \
     --raw_fasta ./data/reference/idmapping_2026_02_03.fasta.gz \
     --fasta_dir ./data/reference/fasta \
     --nr_db_path $PROJECT_DIR/nrdb \
-    --uniref_db_path $PROJECT_DIR/UniRef30 \
-    --pssm_dir ./data/reference/pssm \
-    --hmm_dir ./data/reference/hhm \
-    --workers 95 \
-    --jobs split pssm hmm
+    --uniref_db_path $PROJECT_DIR/data/UniRef30 \
+    --pssm_dir $PROJECT_DIR/data/preprocess/pssm \
+    --hmm_dir $PROJECT_DIR/data/preprocess/hmm \
+    --workers 192 \
+    --jobs pssm
