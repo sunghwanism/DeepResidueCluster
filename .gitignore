@@ -6,6 +6,11 @@ dataFolder/**/**/*
 wandb/*
 ncbi*
 *.fasta
+*.hhr
+*.pkl
+*.csv
+*.xlsx
+*.gz
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
