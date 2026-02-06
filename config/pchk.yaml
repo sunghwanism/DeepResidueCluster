@@ -1,0 +1,13 @@
+model: pchk
+feature_dim: 19
+hidden_dim: 128
+out_dim: 64
+bb_masking_ratio: 0.1
+att_mask_ratio: 0.15
+alpha: 1.0
+beta: 1.0
+contrastive_margin: 1.0
+lr: 0.001
+epochs: 500
+pin_memory: True
+num_sample_nodes: [25, 10]

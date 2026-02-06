@@ -1,5 +1,5 @@
-model: DGI
-Graph_PATH: 
+model: pchk
+Graph_PATH: 'mergedG_btw+clos+deg+pgr+spl.pkl'
 GraphAtt_PATH: 
 Feature_PATH: 
 SAVEPATH: 
@@ -13,11 +13,10 @@ label_col: None
 
 # Features in Table || If you don't want to use features, set it to None
 node_col_name: node_id
-dict_for_uniprot_to_index: 'config/uniprot-id_to_index.json'
 table_features:
   - mutability
-  - uniprot_id
-  - mut+res-bin
+  - uniprot_id # object -> Encode
+  - mut+res-bin # categorical -> Encode
   # Location
   - BHAR880101
   - CHOP780201
@@ -26,13 +25,43 @@ table_features:
   - JANJ780101
   - KLEP840101
   - KYTJ820101
-  # Mutation -> Include Null Value --> fillna Applied
+  - rel_sasa
+  - depth
+  - hse_up
+  - hse_down
+  # -> Include Null Value: fillna Applied
   - total_mutations_count
-  - DAYM780301_avg #  DAYM780301 score=10^(DAYM780301_avg/10)
-  - HENS920102_avg  # HENS920102_score=2^(HENS920102_avg/3)
   - unique_patients_count
   - unique_mutation_types_count
-  # AM --> To be Updated
+  - DAYM780301_avg       # score=10^(DAYM780301_avg/10)
+  - HENS920102_avg       # score=2^(HENS920102_avg/3)
+  - avg_am_pathogenicity  # AlphaMissense Pathogenicity
+  # - wild_type_residue # obj --> residueType
+  - ptms_mapped # only have 4022 values
+  # - ap_evidence_level # Too small
+  # - ap_type # Too small
+  # Secondary Structure
+  - ss_helix
+  - ss_sheet
+  - ss_loop
+  # - dssp_ss_bridge # Too small
+  - dssp_accessibility
+  - dssp_TCO
+  - dssp_kappa
+  - dssp_alpha
+  - dssp_phi
+  - dssp_psi
+  - dssp_sec_struct # 8 Classes (incl NaN)
+  - dssp_helix_3_10 # 4 Classes (incl NaN)
+  - dssp_helix_alpha # 4 Classes (incl NaN)
+  - dssp_helix_pi # 4 Classes (incl NaN)
+  - dssp_helix_pp # 3 Classes (incl NaN)
+  - dssp_bend # 1 Classes (incl NaN)
+  - dssp_chirality # 2 Classes (incl NaN)
+  - dssp_sheet # 222 Classes (incl NaN)
+  - dssp_strand # 831 Classes (incl NaN)
+  - dssp_ladder_1 # 614 Classes (incl NaN)
+  - dssp_ladder_2 # 570 Classes (incl NaN)
 
 bin_size: 42
 uniprot_size: 800
@@ -63,7 +92,7 @@ min_cc_size: 4
 # Data Augmentation
 # ====================
 use_aug: True
-add_const_to_node: True
+add_const_to_node: False
 split_to_subgraphs: 
   - mut_anchored
 aug_subgraph_steps: 3
