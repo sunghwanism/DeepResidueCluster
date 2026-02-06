@@ -64,34 +64,28 @@ class GraphPairDataset(Dataset):
         based on the index (even/odd).
         """
         
-        # Even index -> Generate Positive Pair (Same Class)
         if idx % 2 == 0:
-            # Randomly decide whether to sample (0, 0) or (1, 1)
-            # This ensures the model learns similarities for both classes.
             if random.random() > 0.5:
-                # Case: (0, 0)
                 graph_a, graph_b = self._sample_same_group(self.group_0)
             else:
-                # Case: (1, 1)
                 graph_a, graph_b = self._sample_same_group(self.group_1)
             
-            # Label 1 for "Similar/Positive"
             label = torch.tensor([1.0], dtype=torch.float)
             
-        # Odd index -> Generate Negative Pair (Diff Class)
         else:
-            # Case: (0, 1) or (1, 0)
             graph_a = random.choice(self.group_0)
             graph_b = random.choice(self.group_1)
             
-            # Label 0 for "Dissimilar/Negative"
             label = torch.tensor([0.0], dtype=torch.float)
+
+        if self.transform is not None:
+            graph_a = self.transform(graph_a)
+            graph_b = self.transform(graph_b)
 
         return graph_a, graph_b, label
 
     def _sample_same_group(self, group_list):
         """Helper to sample two DISTINCT graphs from the same group."""
-        # random.sample ensures distinct indices if the list has unique objects
         return random.sample(group_list, 2)
 
 def collate_pairs(batch):
@@ -108,6 +102,30 @@ def collate_pairs(batch):
     batch_labels = torch.stack(labels)
 
     return batch_a, batch_b, batch_labels
+
+from torch_geometric.loader import NeighborLoader as PyGNeighborLoader
+
+class NeighborSubgraphSampler:
+    """
+    Applies GraphSAGE-style Neighbor Sampling to a Data object.
+    If sizes is a list (e.g. [25, 10]), it limits neighbors per layer.
+    """
+    def __init__(self, sizes):
+        self.sizes = sizes
+
+    def __call__(self, data):
+        
+        loader = PyGNeighborLoader(
+            data,
+            num_neighbors=self.sizes,
+            batch_size=data.num_nodes, # Full batch
+            shuffle=False,
+            input_nodes=None, # All nodes are seeds
+        )
+        
+        sampled_data = next(iter(loader))
+        
+        return sampled_data
 
 def get_contrastive_loaders(train_data, val_data, test_data, config):
     """
@@ -137,36 +155,24 @@ def get_contrastive_loader(dataset_list, config, shuffle=True):
     if dataset_list is None or len(dataset_list) == 0:
         return None
 
-    # Check for NeighborLoader request
-    num_sample_nodes = getattr(config, 'num_sample_nodes', None)
+    # Determine Sampling Transform
+    transform = None
+    num_sample_nodes = getattr(config, 'num_sample_nodes', None) # List of sizes for each layer
     
     if num_sample_nodes is not None:
-        # User requested NeighborLoader
-        from torch_geometric.data import Batch
-        from torch_geometric.loader import NeighborLoader
-        
-        merged_data = Batch.from_data_list(dataset_list)
-        loader = NeighborLoader(
-            merged_data,
-            num_neighbors=num_sample_nodes,
-            batch_size=config.batch_size,
-            shuffle=shuffle,
-            num_workers=getattr(config, 'num_workers', 0),
-            pin_memory=getattr(config, 'pin_memory', True)
-        )
-        return loader
+        transform = NeighborSubgraphSampler(num_sample_nodes)
         
     # Default attribute index to 0 if not present in config
     attr_idx = getattr(config, 'attribute_index', 0)
     
-    # Create Dataset
-    dataset = GraphPairDataset(dataset_list, attribute_index=attr_idx)
+    # Create Dataset with Transform
+    dataset = GraphPairDataset(dataset_list, attribute_index=attr_idx, transform=transform)
     
     # Create DataLoader
     loader = DataLoader(
         dataset,
         batch_size=config.batch_size,
-        shuffle=shuffle,
+        shuffle=shuffle, # Shuffle pairs, not nodes
         num_workers=getattr(config, 'num_workers', 0),
         pin_memory=getattr(config, 'pin_memory', True),
         collate_fn=collate_pairs
