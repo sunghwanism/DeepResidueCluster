@@ -41,29 +41,29 @@ def split_fasta(input_path, output_dir):
         print("Error: UnicodeDecodeError")
 
 
-def extract_pssm(fasta_dir, pssm_dir, db_path,):
-    os.makedirs(pssm_dir, exist_ok=True)
+# def extract_pssm(fasta_dir, pssm_dir, db_path,):
+#     os.makedirs(pssm_dir, exist_ok=True)
 
-    for fasta_file in os.listdir(fasta_dir):
-        if fasta_file.endswith(".fasta"):
-            protein_id = fasta_file.split(".")[0]
-            output_pssm = os.path.join(pssm_dir, f"{protein_id}.pssm")
+#     for fasta_file in os.listdir(fasta_dir):
+#         if fasta_file.endswith(".fasta"):
+#             protein_id = fasta_file.split(".")[0]
+#             output_pssm = os.path.join(pssm_dir, f"{protein_id}.pssm")
 
-            if os.path.exists(output_pssm):
-                print(f"PSSM already exists for {protein_id}. Skipping.")
-                continue
+#             if os.path.exists(output_pssm):
+#                 print(f"PSSM already exists for {protein_id}. Skipping.")
+#                 continue
             
-            cmd = [
-                "psiblast",
-                "-query", os.path.join(fasta_dir, fasta_file),
-                "-db", db_path,
-                "-num_iterations", "3",
-                "-evalue", "0.001",
-                "-matrix", "BLOSUM62",
-                "-out_ascii_pssm", output_pssm
-            ]
+#             cmd = [
+#                 "psiblast",
+#                 "-query", os.path.join(fasta_dir, fasta_file),
+#                 "-db", db_path,
+#                 "-num_iterations", "3",
+#                 "-evalue", "0.001",
+#                 "-matrix", "BLOSUM62",
+#                 "-out_ascii_pssm", output_pssm
+#             ]
             
-            subprocess.run(cmd)
+#             subprocess.run(cmd)
 
 def run_single_psiblast(args):
     fasta_path, db_path, output_pssm = args
@@ -88,8 +88,13 @@ def extract_pssm_parallel(fasta_dir, pssm_dir, db_path, max_workers=192):
     for fasta_file in os.listdir(fasta_dir):
         if fasta_file.endswith(".fasta"):
             protein_id = fasta_file.split(".")[0]
-            fasta_path = os.path.join(fasta_dir, fasta_file)
             output_pssm = os.path.join(pssm_dir, f"{protein_id}.pssm")
+
+            if os.path.exists(output_pssm):
+                print(f"PSSM already exists for {protein_id}. Skipping.")
+                continue
+
+            fasta_path = os.path.join(fasta_dir, fasta_file)
             tasks.append((fasta_path, db_path, output_pssm))
 
     print(f"Starting parallel PSSM extraction with {max_workers} workers...")
@@ -134,6 +139,11 @@ def extract_hmm_parallel(fasta_dir, hmm_dir, db_path, max_workers=192):
         print(f"Processing {fasta_path}")
         protein_id = os.path.basename(fasta_path).replace(".fasta", "")
         output_hhm = os.path.join(hmm_dir, f"{protein_id}.hhm")
+
+        if os.path.exists(output_hhm):
+            print(f"HHM already exists for {protein_id}. Skipping.")
+            continue
+
         tasks.append((os.path.join(fasta_dir, fasta_path), db_path, output_hhm))
 
     results = []
