@@ -22,18 +22,21 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     """
 
     # 1. Load Graph Structure
-    G = loadGraph(config.Graph_PATH)
-    mergedG = merge_graph_attributes(G, config)
+    if not os.path.exists(config.Graph_PATH):
+        G = loadGraph(config.Graph_PATH)
+        mergedG = merge_graph_attributes(G, config)
+
+        with open(config.Graph_PATH, 'wb') as f:
+            pickle.dump(mergedG, f)
+        del G
+    else:
+        with open(config.Graph_PATH, 'rb') as f:
+            mergedG = pickle.load(f)
 
     # Normalize node attributes
     graph = normalize_node_attribute(mergedG, config.graph_features, config.node_att_norm_target, method=config.node_att_norm_method)
 
     print("Graph loaded successfully")
-    print(graph)
-    node, edge = get_sample(graph)
-    print("Node Example", node)
-    print("Edge Example", edge)
-    del G, node, edge, mergedG
     print("============================"*2)
     
     # 2. Load Table Features (Node Attributes)
@@ -41,9 +44,11 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     if config.table_features is not None:
         try:
             basic_node_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_features.csv'))
-            am_node_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_features_with_am.csv'))
+            am_node_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_features_with_am_v02062026.csv'))
             bmr_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_mutation_with_BMR_v120525.csv'))
-            bmr_df.drop(columns=['total_mutations_count', 'unique_mutation_types_count', 'unique_patients_count', 'uniprot_id'], inplace=True)
+
+            cols_to_drop = ['total_mutations_count', 'unique_mutation_types_count', 'unique_patients_count', 'uniprot_id']
+            bmr_df = bmr_df.drop(columns=cols_to_drop)
 
             df = pd.merge(basic_node_df, am_node_df, on='node_id', how='left')
             df = pd.merge(df, bmr_df, on='node_id', how='left')
@@ -59,8 +64,7 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
                 df = df[cols]
             else:
                 df = df[config.table_features]
-                
-            print("Features loaded successfully")
+            print("Table Features loaded successfully")
         except Exception as e:
             print(f"Warning: Failed to load CSV features. {e}")
             df = None
@@ -196,17 +200,17 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     print("Converting to PyG Data objects...")
 
     train_data = convert_to_pyg(train_comps, "Train", df, config)
-    print(f"Finish Train Data Conversion to PyG")
     val_data = convert_to_pyg(val_comps, "Val", df, config)
-    print(f"Finish Val Data Conversion to PyG")
     test_data = convert_to_pyg(test_comps, "Test", df, config)
-    print(f"Finish Test Data Conversion to PyG")
 
     # 7. Apply Feature Augmentation
+    print("============================"*2)
     print("Applying Feature Augmentation...")
-    train_data = FeatureAugmentation(train_data, config)
-    val_data = FeatureAugmentation(val_data, config)
-    test_data = FeatureAugmentation(test_data, config)
+    train_data, _ = FeatureAugmentation(train_data, config)
+    val_data, _ = FeatureAugmentation(val_data, config)
+    test_data, augmentation_log = FeatureAugmentation(test_data, config)
+    print(f"Applied Feature Augmentations: {augmentation_log}")
+    print("============================"*2)
     
     return train_data, test_data, val_data
 
@@ -215,7 +219,6 @@ def FeatureAugmentation(data_list, config):
     """
     Applies feature augmentations (e.g., constant features).
     """
-    print("Start Feature Augmentation")
     augmentation_log = []
     
     # 1. Add Constant Feature
@@ -235,8 +238,7 @@ def FeatureAugmentation(data_list, config):
     # if config.use_virtual_node:
     #     ...
 
-    print(f"Applied Feature Augmentations: {augmentation_log}")
-    return data_list
+    return data_list, augmentation_log
 
 
 def ProcessConnectedComponents(components_list, config):
@@ -287,7 +289,7 @@ def getDataLoader(data_list, config, test=False):
 
 def convert_to_pyg(comp_list, split_name, df, config):
     pyg_list = []
-    for comp in comp_list:
+    for i, comp in enumerate(comp_list):
         pyg_obj = nx_to_pyg_data(
             comp, 
             node_features_df=df, 
@@ -296,7 +298,9 @@ def convert_to_pyg(comp_list, split_name, df, config):
             table_features=config.table_features, 
             use_edge_weight=config.use_edge_weight,
             add_constant_feature=False,
-            config=config
+            config=config,
+            verbose=True if i == 0 else False
         )
         pyg_list.append(pyg_obj)
+
     return pyg_list
