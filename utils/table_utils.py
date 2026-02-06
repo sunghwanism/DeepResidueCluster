@@ -230,8 +230,9 @@ def apply_and_save_mapping(df, columns, mapping_path):
         unknown_idx = full_mapping[col].get('Unknown', 0)
         df[col] = df[col].map(lambda x: full_mapping[col].get(x, unknown_idx))
 
-    with open(mapping_path, 'w') as f:
-        json.dump(full_mapping, f, indent=4)
+    if not os.path.exists(mapping_path):
+        with open(mapping_path, 'w') as f:
+            json.dump(full_mapping, f, indent=4)
     
     return df
 

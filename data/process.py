@@ -299,7 +299,7 @@ def convert_to_pyg(comp_list, split_name, df, config):
             use_edge_weight=config.use_edge_weight,
             add_constant_feature=False,
             config=config,
-            verbose=True if i == 0 else False
+            verbose=True if i == 0 and split_name == "Train" else False
         )
         pyg_list.append(pyg_obj)
 
