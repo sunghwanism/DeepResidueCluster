@@ -22,6 +22,7 @@ At first, you need to download FASTA format file of your target protein through 
 Input your protein ID in the blank box and download the FASTA format file.
 
 ### PSSM (Position Specific Scoring Matrix)
+PSSM takes two days with 192 CPU and 300GB RAM (Parallel CPU Processing)
 ```bash
 # DownLoad BLAST
 wget https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ncbi-blast-2.17.0+-x64-linux.tar.gz
@@ -48,6 +49,7 @@ python data/ExtractAtt/evol_info.py \
 ```
 
 ### HHM (Hidden Markov model)
+HMM takes 4 hours with 40 CPU and 400GB RAM (Parallel CPU Processing)
 ```bash
 # Download HMM 
 mkdir hhsuite-3.3.0-SSE2
@@ -73,9 +75,6 @@ python data/ExtractAtt/evol_info.py \
 --hmm_dir SAVE_RESULT_PATH
 --jobs split hmm # if you don't have to run split job, you only input pssm
 ```
-
-
-
 
 
 # Data Structure
