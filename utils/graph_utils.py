@@ -15,7 +15,8 @@ def nx_to_pyg_data(G, node_features_df=None, label_col=None,
                    table_features=None,
                    add_constant_feature=True, 
                    use_edge_weight=False,
-                   config=None):
+                   config=None,
+                   verbose=False):
     """
     Converts a NetworkX graph to a PyTorch Geometric Data object, 
     merging features from both the graph attributes and an external DataFrame.
@@ -37,65 +38,78 @@ def nx_to_pyg_data(G, node_features_df=None, label_col=None,
     
     # 1. Convert graph structure and extract internal graph features
     data = from_networkx(G, group_node_attrs=graph_features)
+    
+    feature_names = []
+    if graph_features:
+        feature_names.extend([f"[Graph] {f}" for f in graph_features])
 
     # 2. Handle Edge Weights
     if not use_edge_weight and hasattr(data, 'edge_weight'):
         del data.edge_weight
     
-    # 3. Align Node Order (Crucial for mapping DataFrame to Graph)
+    # 3. Align Node Order
     nodes = list(G.nodes())
-    num_nodes = len(nodes)
     
-    # 4. Process DataFrame Features (and merge with Graph Features)
+    # 4. Process DataFrame Features
     if node_features_df is not None:
-        # Verify that all graph nodes exist in the DataFrame
         if not all(node in node_features_df.index for node in nodes):
             raise ValueError("Error: Not all nodes in the graph are present in the node_features_df index.")
         
-        # Reorder DataFrame to match the order of nodes in the graph
         df_ordered = node_features_df.loc[nodes]
         
-        # (A) Extract Labels (y)
         if label_col is not None:
-            if label_col not in df_ordered.columns:
-                raise ValueError(f"Error: Label column '{label_col}' not found in DataFrame.")
-            
-            # Convert to tensor (Assuming Long type for classification tasks)
             labels = df_ordered[label_col].values
-            data.y = torch.tensor(labels, dtype=torch.long) # for classification tasks
+            data.y = torch.tensor(labels, dtype=torch.long)
         
-        # (B) Extract Tabular Features
-        # If table_features is not provided, use all columns except the label column
         features_to_use = table_features
         if features_to_use is None:
             features_to_use = [col for col in df_ordered.columns if col != label_col]
         
         if len(features_to_use) > 0:
-            df_ordered, category_feat = EncodeFeatures(df_ordered, features_to_use, config.dict_for_uniprot_to_index)
+            df_ordered, category_feat, numerical_feat = EncodeFeatures(df_ordered, features_to_use, verbose)
             features_to_use = [col for col in features_to_use if col not in category_feat]
-            table_x = torch.tensor(df_ordered[features_to_use].values, dtype=torch.float)
+            features_to_use.extend(numerical_feat)
+            if 'ptms_mapped' in features_to_use:
+                features_to_use.remove('ptms_mapped')
             
-            # [Core Logic] Merge Graph Features and Table Features
-            # If data.x already exists (from graph_features), concatenate them along dim 1.
+            # Record numerical table features
+            feature_names.extend([f"[Table] {f}" for f in features_to_use])
+            table_x = torch.tensor(df_ordered[features_to_use].values, dtype=torch.float)
+
             if hasattr(data, 'x') and data.x is not None:
                 data.x = torch.cat([data.x, table_x], dim=1)
             else:
-                # If only table features exist, assign them directly
                 data.x = table_x
 
-            # If there are categorical features, add them to the data object
             if len(category_feat) > 0:
+                cat_tensor = torch.tensor(df_ordered[category_feat].values, dtype=torch.long)
                 if hasattr(data, 'x_cat') and data.x_cat is not None:
-                    data.x_cat = torch.cat([data.x_cat, torch.tensor(df_ordered[category_feat].values, dtype=torch.long)], dim=1)
+                    data.x_cat = torch.cat([data.x_cat, cat_tensor], dim=1)
                 else:
-                    data.x_cat = torch.tensor(df_ordered[category_feat].values, dtype=torch.long)
+                    data.x_cat = cat_tensor
 
-    
+    if add_constant_feature:
+        num_nodes = data.x.size(0)
+        constant_x = torch.ones((num_nodes, 1), dtype=torch.float)
+        data.x = torch.cat([data.x, constant_x], dim=1)
+        feature_names.append("[Extra] Constant Feature (1.0)")
+
+    # [Feature Logging] Show feature to index mapping ONCE
+    if verbose:
+        print("\n" + "="*60)
+        print(f"{'INDEX':<10} | {'SOURCE':<10} | {'FEATURE NAME'}")
+        print("-"*60)
+        for i, full_name in enumerate(feature_names):
+            source, name = full_name.split('] ', 1)
+            source = source.replace('[', '')
+            print(f"{i:<10} | {source:<10} | {name}")
+        print("="*60 + "\n")
+        nx_to_pyg_data.printed_features = True
+
     if not hasattr(data, 'x') or data.x is None:
-        raise ValueError("Error: No features provided. Please provide either graph features or table features.")
+        raise ValueError("Error: No features provided.")
 
     return data
-
 
 def create_dgi_training_data(data):
     """
@@ -293,7 +307,6 @@ def get_node_att_value(obj, att):
     else:
         raise TypeError("Input must be a networkx Graph or a node attribute dictionary.")
 
-
 def get_edge_att_value(G, att):
     """Helper to get attribute value from Graph edges."""
     return [d.get(att, None) for u, v, d in G.edges(data=True)]
@@ -345,8 +358,8 @@ def normalize_node_attribute(G, all_node_att, att_name_list, method='minmax'):
         except Exception as e:
             print(f"Failed to normalize attribute '{att_name} | using {method}': {str(e)}")
             continue
-    print("============================ "*2)
+    print("============================"*2)
     print(f"Attributes '{Success_target}' normalized using {method}.")
-    print("============================ "*2)
+    print("============================"*2)
 
     return graph
