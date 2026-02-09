@@ -55,26 +55,26 @@ def nx_to_pyg_data(G, node_features_df=None, label_col=None,
         if not all(node in node_features_df.index for node in nodes):
             raise ValueError("Error: Not all nodes in the graph are present in the node_features_df index.")
         
-        df_ordered = node_features_df.loc[nodes]
+        df_ordered = node_features_df.loc[nodes].copy()
         
         if label_col is not None:
             labels = df_ordered[label_col].values
             data.y = torch.tensor(labels, dtype=torch.long)
         
-        features_to_use = table_features
+        features_to_use = table_features.copy()
         if features_to_use is None:
             features_to_use = [col for col in df_ordered.columns if col != label_col]
         
         if len(features_to_use) > 0:
-            df_ordered, category_feat, numerical_feat = EncodeFeatures(df_ordered, features_to_use, verbose)
-            features_to_use = [col for col in features_to_use if col not in category_feat]
-            features_to_use.extend(numerical_feat)
+            result_df, category_feat, numerical_feat = EncodeFeatures(df_ordered, features_to_use, verbose)
+            split_features = [col for col in features_to_use if col not in category_feat]
+            split_features.extend(numerical_feat)
             if 'ptms_mapped' in features_to_use:
-                features_to_use.remove('ptms_mapped')
+                split_features.remove('ptms_mapped')
             
             # Record numerical table features
-            feature_names.extend([f"[Table] {f}" for f in features_to_use])
-            table_x = torch.tensor(df_ordered[features_to_use].values, dtype=torch.float)
+            feature_names.extend([f"[Table] {f}" for f in split_features])
+            table_x = torch.tensor(result_df[split_features].values, dtype=torch.float)
 
             if hasattr(data, 'x') and data.x is not None:
                 data.x = torch.cat([data.x, table_x], dim=1)
@@ -82,7 +82,7 @@ def nx_to_pyg_data(G, node_features_df=None, label_col=None,
                 data.x = table_x
 
             if len(category_feat) > 0:
-                cat_tensor = torch.tensor(df_ordered[category_feat].values, dtype=torch.long)
+                cat_tensor = torch.tensor(result_df[category_feat].values, dtype=torch.long)
                 if hasattr(data, 'x_cat') and data.x_cat is not None:
                     data.x_cat = torch.cat([data.x_cat, cat_tensor], dim=1)
                 else:
@@ -104,7 +104,6 @@ def nx_to_pyg_data(G, node_features_df=None, label_col=None,
             source = source.replace('[', '')
             print(f"{i:<10} | {source:<10} | {name}")
         print("="*60 + "\n")
-        nx_to_pyg_data.printed_features = True
 
     if not hasattr(data, 'x') or data.x is None:
         raise ValueError("Error: No features provided.")

@@ -12,7 +12,7 @@ from torch_geometric.loader import DataLoader, NeighborLoader
 from sklearn.model_selection import train_test_split
 
 from utils.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes, filtered_only_attributes, get_sample, normalize_node_attribute
-from utils.table_utils import make_bin_cols, scaling_and_fillnafeature
+from utils.table_utils import make_bin_cols, scaling_and_fillnafeature, process_ptms
 from data.Augmentation import mutation_anchored_subgraphs
 
 def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
@@ -41,6 +41,7 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     
     # 2. Load Table Features (Node Attributes)
     df = None 
+    final_table_features = config.table_features
     if config.table_features is not None:
         try:
             basic_node_df = pd.read_csv(os.path.join(config.Feature_PATH, 'node_features.csv'))
@@ -54,20 +55,33 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
             df = pd.merge(df, bmr_df, on='node_id', how='left')
 
             df = scaling_and_fillnafeature(df, config.table_features)
-
+            
             if 'mut+res-bin' in config.table_features:
                 df = make_bin_cols(df, 'mut+res-bin', bin_size=config.bin_size)
+
+            if 'ptms_mapped' in config.table_features:
+                print("Processing PTMs features globally...")
+                df, ptm_cols = process_ptms(df, verbose=True)
+                
+                # Update feature list for PyG conversion
+                final_table_features = [f for f in config.table_features if f != 'ptms_mapped']
+                final_table_features.extend(ptm_cols)
+                print(f"Global PTM features added: {len(ptm_cols)}")
+            else:
+                final_table_features = config.table_features
 
             df = df.set_index(config.node_col_name)
             if config.label_col is not None:
                 cols = [config.label_col] + config.table_features
                 df = df[cols]
             else:
-                df = df[config.table_features]
+                # df = df[config.table_features] # [Commented out] Allow extra columns (PTMs)
+                pass 
             print("Table Features loaded successfully")
         except Exception as e:
             print(f"Warning: Failed to load CSV features. {e}")
             df = None
+            final_table_features = config.table_features
     print("============================"*2)
 
     # 3. Split Graph into Connected Components
@@ -191,7 +205,7 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
         
     elif only_test:
         print("Converting to PyG Data objects...")
-        test_data = convert_to_pyg(components, "Test", df, config)
+        test_data = convert_to_pyg(components, "Test", df, config, final_table_features)
         print("Applying Feature Augmentation...")
         test_data = FeatureAugmentation(test_data, config)
         return test_data
@@ -199,9 +213,9 @@ def LoadDataset(config, only_test=False, clear_att_in_orginG=False):
     # 6. Convert to PyG Data Objects
     print("Converting to PyG Data objects...")
 
-    train_data = convert_to_pyg(train_comps, "Train", df, config)
-    val_data = convert_to_pyg(val_comps, "Val", df, config)
-    test_data = convert_to_pyg(test_comps, "Test", df, config)
+    train_data = convert_to_pyg(train_comps, "Train", df, config, final_table_features)
+    val_data = convert_to_pyg(val_comps, "Val", df, config, final_table_features)
+    test_data = convert_to_pyg(test_comps, "Test", df, config, final_table_features)
 
     # 7. Apply Feature Augmentation
     print("============================"*2)
@@ -287,7 +301,10 @@ def getDataLoader(data_list, config, test=False):
             pin_memory=True
         )
 
-def convert_to_pyg(comp_list, split_name, df, config):
+def convert_to_pyg(comp_list, split_name, df, config, table_features=None):
+    if table_features is None:
+        table_features = config.table_features
+
     pyg_list = []
     for i, comp in enumerate(comp_list):
         pyg_obj = nx_to_pyg_data(
@@ -295,11 +312,11 @@ def convert_to_pyg(comp_list, split_name, df, config):
             node_features_df=df, 
             label_col=config.label_col, 
             graph_features=config.graph_features, 
-            table_features=config.table_features, 
+            table_features=table_features, 
             use_edge_weight=config.use_edge_weight,
             add_constant_feature=False,
             config=config,
-            verbose=True if i == 0 and split_name == "Train" else False
+            verbose=True if i == 0 and split_name == "Val" else False
         )
         pyg_list.append(pyg_obj)
 
