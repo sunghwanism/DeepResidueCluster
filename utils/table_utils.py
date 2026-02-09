@@ -129,16 +129,22 @@ def process_numeric_na_feature(df, feat, fill_val, verbose=True):
 
 def process_ptms(df, verbose):
     """Handles one-hot encoding of PTM lists."""
-    df['ptms_mapped'] = df['ptms_mapped'].apply(parse_ptm)
+    # Check if first element is string to decide if parsing is needed
+    sample_val = df['ptms_mapped'].dropna().iloc[0] if not df['ptms_mapped'].dropna().empty else None
+    if isinstance(sample_val, str):
+        df['ptms_mapped'] = df['ptms_mapped'].apply(parse_ptm)
+
     all_ptms = set()
     for l in df['ptms_mapped']:
-        all_ptms.update(l)
+        if isinstance(l, list):
+            all_ptms.update(l)
     all_ptms = sorted(list(all_ptms))
 
     new_cols = []
     for ptm in all_ptms:
         col_name = f'ptm_{ptm}'
-        df[col_name] = df['ptms_mapped'].apply(lambda x: 1 if ptm in x else 0).astype('int8')
+        # Safe check for list type + containment
+        df[col_name] = df['ptms_mapped'].apply(lambda x: 1 if (isinstance(x, list) and ptm in x) else 0).astype('int8')
         new_cols.append(col_name)
         
     df['ptm_is_na'] = (df['ptms_mapped'].apply(len) == 0).astype('int8')

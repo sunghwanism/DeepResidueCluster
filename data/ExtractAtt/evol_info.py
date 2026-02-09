@@ -40,31 +40,6 @@ def split_fasta(input_path, output_dir):
     except UnicodeDecodeError:
         print("Error: UnicodeDecodeError")
 
-
-# def extract_pssm(fasta_dir, pssm_dir, db_path,):
-#     os.makedirs(pssm_dir, exist_ok=True)
-
-#     for fasta_file in os.listdir(fasta_dir):
-#         if fasta_file.endswith(".fasta"):
-#             protein_id = fasta_file.split(".")[0]
-#             output_pssm = os.path.join(pssm_dir, f"{protein_id}.pssm")
-
-#             if os.path.exists(output_pssm):
-#                 print(f"PSSM already exists for {protein_id}. Skipping.")
-#                 continue
-            
-#             cmd = [
-#                 "psiblast",
-#                 "-query", os.path.join(fasta_dir, fasta_file),
-#                 "-db", db_path,
-#                 "-num_iterations", "3",
-#                 "-evalue", "0.001",
-#                 "-matrix", "BLOSUM62",
-#                 "-out_ascii_pssm", output_pssm
-#             ]
-            
-#             subprocess.run(cmd)
-
 def run_single_psiblast(args):
     fasta_path, db_path, output_pssm = args
     
@@ -97,7 +72,7 @@ def extract_pssm_parallel(fasta_dir, pssm_dir, db_path, max_workers=192):
             fasta_path = os.path.join(fasta_dir, fasta_file)
             tasks.append((fasta_path, db_path, output_pssm))
 
-    print(f"Starting parallel PSSM extraction with {max_workers} workers...")
+    print(f"Starting parallel PSSM extraction {len(tasks)} with {max_workers} workers...")
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         list(executor.map(run_single_psiblast, tasks))
 
@@ -147,10 +122,12 @@ def extract_hmm_parallel(fasta_dir, hmm_dir, db_path, max_workers=192):
         tasks.append((os.path.join(fasta_dir, fasta_path), db_path, output_hhm))
 
     results = []
+    print(f"Starting parallel HMM extraction {len(tasks)} with {max_workers} workers...")
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(run_single_hhblits, tasks))
     print(results)
     return results
+
 
 # For Parallel Process
 if __name__ == "__main__":
@@ -170,15 +147,24 @@ if __name__ == "__main__":
         print("Run split job")
         assert args.raw_fasta is not None, "raw_fasta is required for split job"
         split_fasta(args.raw_fasta, args.fasta_dir)
+        print("###################")
+        print("Split is done")
+        print("###################")
 
     if 'pssm' in args.jobs:
         print("Run pssm job")
         assert args.nr_db_path is not None, "nr_db_path is required for pssm job"
         assert args.pssm_dir is not None, "pssm_dir is required for pssm job"
         extract_pssm_parallel(args.fasta_dir, args.pssm_dir, args.nr_db_path, max_workers=args.workers)
+        print("###################")
+        print("PSSM is done")
+        print("###################")
         
     if 'hmm' in args.jobs:
         print("Run hmm job")
         assert args.uniref_db_path is not None, "uniref_db_path is required for hmm job"
         assert args.hmm_dir is not None, "hmm_dir is required for hmm job"
         extract_hmm_parallel(args.fasta_dir, args.hmm_dir, args.uniref_db_path, max_workers=args.workers)
+        print("###################")
+        print("Finish HMM job")
+        print("###################")

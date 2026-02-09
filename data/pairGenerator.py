@@ -3,6 +3,7 @@ import random
 from torch_geometric.data import Data, Dataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch
+from utils.table_utils import MAPPING_CONFIG
 
 
 class GraphPairDataset(Dataset):
@@ -31,16 +32,17 @@ class GraphPairDataset(Dataset):
         self.group_1 = []
         
         # Pre-process: Split dataset into two groups
+        # Logic: 
+        # Group 0 (Non-Mutated): All nodes have 0 mutations.
+        # Group 1 (Mutated): At least one node has > 0 mutations.
+        print(f"[Grouping] Using attribute index {attribute_index} for grouping...")
         for data in dataset:
-            # Check if any node has value 0 in the specified attribute column
-            has_zero = (data.x[:, attribute_index] == 0).any()
-            # Check if any node has value 1 in the specified attribute column
-            has_one = (data.x[:, attribute_index] == 1).any()
+            # Check if graph has any mutations (any node with attribute > 0)
+            is_mutated = (data.x[:, attribute_index] > 0).any()
             
-            if has_zero:
+            if not is_mutated:
                 self.group_0.append(data)
-            
-            if has_one:
+            else:
                 self.group_1.append(data)
 
         # Validation: We need at least 2 graphs in each group to form same-class pairs
@@ -50,11 +52,9 @@ class GraphPairDataset(Dataset):
                 f"Current counts -> Group 0: {len(self.group_0)}, Group 1: {len(self.group_1)}"
             )
 
-        print(f"Dataset Ready: {len(self.group_0)} '0-Graphs', {len(self.group_1)} '1-Graphs'.")
+        print(f"[Dataset Ready] Non-Mutated Graphs {len(self.group_0)} || Mutated Graphs {len(self.group_1)}")
 
     def len(self):
-        # Length is arbitrary in pair-based sampling, usually defined by the larger group size
-        # or the total number of possible combinations. Here we approximate it to the total data size.
         return len(self.group_0) + len(self.group_1)
 
     def get(self, idx):
@@ -147,6 +147,41 @@ def get_contrastive_loaders(train_data, val_data, test_data, config):
     return train_loader, val_loader, test_loader
 
 
+def find_attribute_index(config, target_name):
+    """
+    Finds the index of a feature in the node feature matrix (x) based on the config.
+    Replicates the logic in utils/graph_utils.py (nx_to_pyg_data).
+    """
+    graph_features = getattr(config, 'graph_features', [])
+    table_features = getattr(config, 'table_features', [])
+    
+    # 1. Check Graph Features
+    if target_name in graph_features:
+        return graph_features.index(target_name)
+    
+    # 2. Check Table Features (Numerical only, categorical are in x_cat)
+    category_feat = [f for f in table_features if f in MAPPING_CONFIG]
+    
+    # Identify numerical table features (the logic from nx_to_pyg_data)
+    split_features = [col for col in table_features if col not in category_feat]
+    if 'ptms_mapped' in split_features:
+        split_features.remove('ptms_mapped')
+        
+    # Search for variations
+    for feat in split_features:
+        feat_lower = feat.lower()
+        target_lower = target_name.lower()
+        
+        # Exact match
+        if feat == target_name:
+            return len(graph_features) + split_features.index(feat)
+            
+        # Handle mutation vs mutations and count variations
+        if 'total_mutation' in target_lower and 'total_mutation' in feat_lower and 'count' in feat_lower:
+            return len(graph_features) + split_features.index(feat)
+            
+    return None
+
 def get_contrastive_loader(dataset_list, config, shuffle=True):
     """
     Creates a single DataLoader from a list of data objects.
@@ -162,9 +197,18 @@ def get_contrastive_loader(dataset_list, config, shuffle=True):
     if num_sample_nodes is not None:
         transform = NeighborSubgraphSampler(num_sample_nodes)
         
-    # Default attribute index to 0 if not present in config
-    attr_idx = getattr(config, 'attribute_index', 0)
+    # Automatically find attribute index for 'total_mutation_count' if possible
+    # User can specify 'group_attribute' in config, defaults to 'total_mutation_count'
+    target_attr = getattr(config, 'group_attribute', 'total_mutation_count')
+    attr_idx = find_attribute_index(config, target_attr)
     
+    if attr_idx is None:
+        # Fallback to the manual index if name not found
+        attr_idx = getattr(config, 'attribute_index', 0)
+        print(f"[Warning] Attribute '{target_attr}' not found in features. Using fallback index: {attr_idx}")
+    else:
+        print(f"[Info] Found '{target_attr}' at index {attr_idx}")
+
     # Create Dataset with Transform
     dataset = GraphPairDataset(dataset_list, attribute_index=attr_idx, transform=transform)
     
