@@ -21,6 +21,7 @@ dependencies = [
     "wandb==0.24.0",
     "scikit-learn",
     "matplotlib",
+    "statsmodels",
 ]
 
 [tool.setuptools.packages.find]
