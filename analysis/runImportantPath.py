@@ -6,7 +6,7 @@ import argparse
 import pandas as pd
 
 from analysis import make_bin_cols
-from enrich import analyze_all_clusters_parallel
+from enrich import analyze_all_clusters_parallel_pathogenicity
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -30,15 +30,14 @@ def main(config):
     print(save_dict['params'])
     clusters = save_dict['clusters']
 
-    result_df = analyze_all_clusters_parallel(
+    result_df = analyze_all_clusters_parallel_pathogenicity(
             df=all_node_df,
             clusters_dict=clusters,
-            min_mut=config.MIN_MUTATIONS,
+            mutation_counts_col=config.mutation_counts_col,
             n_permutations=config.N_PERMS,
             n_jobs=config.N_CORES,
             stratify=config.stratify,
             bin_col='bin_mutability',
-            PDBMatching=False
         )
 
     SAVEFILE = os.path.join(config.savepath, f'MCL_{config.params}_{config.stratify}_nP1m_bin{config.bin}.csv')
@@ -55,6 +54,7 @@ if __name__ == '__main__':
     parser.add_argument('--bin', type=int, help='Number of bins for mutability stratification')
     parser.add_argument('--stratify', type=str, help='Stratification method: mut, res, mut+res')
 
+    parser.add_argument('--mutation_counts_col', type=str, default='total_mutations_count', help='Column name for mutation counts')
     parser.add_argument('--MIN_MUTATIONS', type=int, default=0, help='Minimum mutations in cluster to be tested')
     parser.add_argument('--N_PERMS', type=int, default=100_000, help='Number of permutations for enrichment test')
     parser.add_argument('--N_CORES', type=int, default=-1, help='Number of cores for parallel processing')
