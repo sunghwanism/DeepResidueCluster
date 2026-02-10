@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --account=def-panch
-#SBATCH --job-name=MCL-Clustering
-#SBATCH --output=logs/MCL-Clustering.txt
+#SBATCH --job-name=MCL-e5i3t11
+#SBATCH --output=logs/MCL-e5i3t11.txt
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=8G
-#SBATCH --time=00:15:00
+#SBATCH --time=00:30:00
 
 
 # load environment variables
