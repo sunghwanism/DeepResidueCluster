@@ -17,10 +17,8 @@ from src.utils.graph_ops import (
     nx_to_pyg_data
 )
 from src.data.transforms import MutationSubgraphAugment, AddConstantFeature
-from src.data.datasets import GraphPairDataset, NeighborSubgraphSampler, find_attribute_index # Assuming get_contrastive_loader logic needs to be inside DataModule or imported
-# Note: get_contrastive_loader was in pairGenerator.py but I didn't fully port it to datasets.py in previous step.
-# I should probably implement the loader creation logic inside DataModule or add it to datasets.py.
-# For now, I will implement loader creation inside DataModule for better cohesion.
+from src.data.datasets import GraphPairDataset, NeighborSubgraphSampler, find_attribute_index
+
 
 logger = get_logger(__name__)
 
@@ -116,7 +114,7 @@ class DeepResidueDataModule:
             feat_path = self.config.Feature_PATH
             # Hardcoded filenames from original logic
             basic_node_df = pd.read_csv(os.path.join(feat_path, 'node_features.csv'))
-            am_node_df = pd.read_csv(os.path.join(feat_path, 'node_features_with_am_v02062026.csv'))
+            am_node_df = pd.read_csv(os.path.join(feat_path, 'node_features_with_location_nodeid_am_annotated_per_node_v02092026.csv'))
             bmr_df = pd.read_csv(os.path.join(feat_path, 'node_mutation_with_BMR_v120525.csv'))
             
             # Merge
