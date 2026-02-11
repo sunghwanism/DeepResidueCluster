@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=60
 #SBATCH --mem=100G
-#SBATCH --time=23:50:00
+#SBATCH --time=06:00:00
 
 # Load bashrc
 source ~/.bashrc
@@ -26,12 +26,12 @@ source $ENV_DIR/DRC/bin/activate
 # export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 MEASURES=(
-    "degree"
+    # "degree"
     # "transitivity"
     # "triangles"
     # "k_truss"
     # "k_core"
-    "pagerank"
+    # "pagerank"
     "closeness"
     "betweenness"
     "shortest_path_length_per_node"
@@ -49,7 +49,7 @@ export NETWORKX_FALLBACK_TO_NX=True # Change GPU to CPU, if GPU is not available
 export SAVEPATH= #ADD SAVE PATH
 export GRAPHPATH= #ADD GRAPHPATH (pkl format)
 
-srun python data/ExtractAtt/run.py \
+srun python preprocessing/ExtractAtt/run.py \
     --graph_path $GRAPHPATH \
     --param_path centralityConfig.py \
     --savepath $SAVEPATH \
