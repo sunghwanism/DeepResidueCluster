@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --account=def-panch
-#SBATCH --job-name=evol_pssm
-#SBATCH --output=logs/evol_pssm_%j.txt
+#SBATCH --job-name=evol_pssm5
+#SBATCH --output=logs/evol_pssm5_%j.txt
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=192
-#SBATCH --mem=200G
-#SBATCH --time=23:50:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=100G
+#SBATCH --time=20:00:00
 
 # load environment variables
 source ~/.bashrc
@@ -32,5 +32,5 @@ srun python data/ExtractAtt/evol_info.py \
     --uniref_db_path $PROJECT_DIR/data/UniRef30 \
     --pssm_dir $PROJECT_DIR/data/preprocess/pssm \
     --hmm_dir $PROJECT_DIR/data/preprocess/hmm \
-    --workers 192 \
+    --workers 1 \
     --jobs pssm

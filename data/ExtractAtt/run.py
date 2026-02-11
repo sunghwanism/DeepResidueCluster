@@ -18,7 +18,6 @@ def get_parser():
     parser = args.ArgumentParser(description="Calculate graph centrality measures.")
     
     # Basic Setting
-    parser.add_argument('--node_path', type=str, required=True, help='Path to node attribute data (CSV file)')
     parser.add_argument('--graph_path', type=str, required=True, help='Path to graph data (pickle file)')
     parser.add_argument('--savepath', type=str, required=True, help='Path to save results')
     parser.add_argument('--logpath', type=str, help='Path to save logs')
@@ -63,7 +62,6 @@ def main(config):
 
     # 1. Load data
     print("Loading graph and attributes...")
-    node_att_df = pd.read_csv(config.node_path)
     with open(config.graph_path, 'rb') as f:
         G = pickle.load(f)
     
