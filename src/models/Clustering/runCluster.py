@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 import time
 import pickle
@@ -11,10 +11,7 @@ from typing import Dict, Any
 import pandas as pd
 import networkx as nx
 
-
-
-from utils_old.graph_utils import map_att_to_node, print_time
-from utils_old.functions import clean_the_memory
+from utils_old.graph_utils import map_att_to_node
 from config import clustering_params
 
 # Constants
@@ -188,25 +185,23 @@ def main(config):
             # Log results
             print(f"-> {measure} Completed. Found {len(clusters_dict)} clusters.")
             
-            # Time calculation
-            measure_end = time.time()
-            H, m, s = time_calc(measure_start, measure_end)
-            print(f"-> Execution Time: {H}h {m}m {s}s")
-            
             # 3. Save Results
             formatted_time = time.strftime("%Y%m%d_%H%M%S")
             is_fragmented = nx.number_connected_components(G) > 1
             filename_suffix = "whole" if is_fragmented else "connected"
             
-            save_filename = f'{measure}_clusters_{filename_suffix}_{formatted_time}.pkl'
+            exp = params['expansion_power']
+            inflation = params['inflation_power']
+            threshold = str(params['pruning_threshold'])[2:]
+            
+            save_filename = f'{measure}_e{exp}i{inflation}t{threshold}.pkl'
             save_path = os.path.join(config.savepath, save_filename)
             
             # Construct save dictionary
             save_data = {
                 'measure': measure,
                 'params': params,
-                'clusters': clusters_dict,
-                'timestamp': formatted_time
+                'clusters': clusters_dict
             }
             save_data.update(extra_data) # Add M matrix, etc if exists
             
@@ -220,8 +215,6 @@ def main(config):
             print(f"[Error] Module import failed for {measure}. Check if the file exists. ({ie})")
         except Exception as e:
             print(f"[Error] An unexpected error occurred during {measure}: {e}")
-            import traceback
-            traceback.print_exc()
 
         print("=" * 60)
 

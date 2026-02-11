@@ -23,7 +23,7 @@ clustering_params = {
     'MCL': {
         'expansion_power': 5,  # Expansion power (e)
         'inflation_power': 3,  # Inflation power (r)
-        'pruning_threshold': 0.13,  # Pruning threshold (t)
+        'pruning_threshold': 0.11,  # Pruning threshold (t)
         'convergence_threshold': 1e-6,  # Convergence threshold (c)
         'max_iterations': 1000,  # Maximum number of iterations
         'use_weights': False,  # Whether to use edge weights

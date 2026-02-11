@@ -1,15 +1,17 @@
 #!/bin/bash
-#SBATCH --job-name=get_node_att
-#SBATCH --ntasks=1
-#SBATCH --output=logs/get_node_att.txt
+#SBATCH --account=def-panch
+#SBATCH --job-name=get_node_att(inter)
+#SBATCH --output=logs/get_node_att(inter).txt
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=192
-#SBATCH --time=23:59:59
-#SBATCH --partition=compute
-#SBATCH --mail-type=FAIL
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=60
+#SBATCH --mem=100G
+#SBATCH --time=23:50:00
 
-# move to base PATH
-cd /home/moonsun6/links/scratch/shmoon/DeepResidueCluster
+# Load bashrc
+source ~/.bashrc
+
+cd $SCRATCH/shmoon/DeepResidueCluster
 
 # Load module
 module load StdEnv/2023
@@ -19,20 +21,20 @@ module load suitesparse/7.6.0
 module load gcc/12.3
 
 # Run virtual env
-source $SCRATCH/shmoon/envs/DRC/bin/activate
+source $ENV_DIR/DRC/bin/activate
 
 # export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-EASY=(
-    # "degree"
+MEASURES=(
+    "degree"
     # "transitivity"
     # "triangles"
     # "k_truss"
     # "k_core"
-    # "pagerank"
+    "pagerank"
     "closeness"
-    # "betweenness"
-    # "shortest_path_length_per_node"
+    "betweenness"
+    "shortest_path_length_per_node"
     # "eigenvector"
     # "local_clustering"
     # "bridges"
@@ -44,13 +46,11 @@ export NX_CUGRAPH_AUTOCONFIG=True
 export NETWORKX_FALLBACK_TO_NX=True # Change GPU to CPU, if GPU is not available
 
 # Set your paths
-export SAVEPATH= #Add your save path here (directory)
-export NODEPATH= #Add your node path here (csv File)
-export GRAPHPATH= #Add your graph path here (pkl File)
+export SAVEPATH= #ADD SAVE PATH
+export GRAPHPATH= #ADD GRAPHPATH (pkl format)
 
 srun python data/ExtractAtt/run.py \
-    --node_path $NODEPATH \
     --graph_path $GRAPHPATH \
     --param_path centralityConfig.py \
     --savepath $SAVEPATH \
-    --measure "${EASY[@]}"
+    --measure "${MEASURES[@]}"
