@@ -98,3 +98,17 @@ def main(args):
 if __name__ == '__main__':
     args = parse_args()
     main(args)
+
+
+#########################
+# Debugging run script
+#########################
+
+# python scripts/runData.py \
+#     --config_path config/run.yaml \
+#     --project_name DeepResidueCluster \
+#     --batch_size 256 \
+#     --num_workers 4 \
+#     --nowandb \
+#     --output_dir . \
+#     --use_aug

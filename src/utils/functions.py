@@ -57,7 +57,7 @@ def LoadConfig(args):
     
     model_name = run_config.get('model')
     model_config_path = os.path.join(
-        os.path.dirname(__file__), f'../config/{model_name}.yaml'
+        os.path.dirname(__file__), f'../../config/{model_name}.yaml'
     )
     with open(model_config_path, 'r') as f:
         model_config = yaml.safe_load(f)
