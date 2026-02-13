@@ -112,6 +112,7 @@ def get_cds_seq(enst_id: str) -> Optional[str]:
     if not data:
         return None
     seq = data.get("seq")
+    time.sleep(0.5)
     return seq.upper() if isinstance(seq, str) else None
 
 
@@ -152,6 +153,7 @@ def find_matching_ensts(
     matched_enst = []
     for ensp in ensp_candidates:
         pseq = get_protein_seq(ensp)
+        time.sleep(1)
         
         if not pseq or aa_pos > len(pseq):
             continue
