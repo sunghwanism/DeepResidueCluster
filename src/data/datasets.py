@@ -7,11 +7,8 @@ from typing import List, Tuple, Optional, Any
 from torch_geometric.data import Dataset, Batch, Data
 from torch_geometric.loader import DataLoader, NeighborLoader as PyGNeighborLoader
 
-from src.utils.logger import get_logger
 from src.utils.sub_ops import MAPPING_CONFIG
 from src.data.transforms import GraphTransform
-
-logger = get_logger(__name__)
 
 class GraphPairDataset(Dataset):
     """
@@ -35,7 +32,7 @@ class GraphPairDataset(Dataset):
         self.attribute_index = attribute_index
         
         # Pre-process: Split dataset into two groups
-        logger.info(f"[Grouping] Using attribute index {attribute_index} for grouping...")
+        print(f"[Grouping] Using attribute index {attribute_index} for grouping...")
         for data in dataset:
             # Check if graph has any mutations (any node with attribute > 0)
             # Assuming attribute_index points to a column in x
@@ -51,12 +48,12 @@ class GraphPairDataset(Dataset):
                 self.group_1.append(data)
 
         if len(self.group_0) < 2 or len(self.group_1) < 2:
-            logger.warning(
-                f"Insufficient data. Need at least 2 graphs in each group. "
+            print(
+                f"[WARNING] Insufficient data. Need at least 2 graphs in each group. "
                 f"Counts -> Group 0: {len(self.group_0)}, Group 1: {len(self.group_1)}"
             )
 
-        logger.info(f"[Dataset Ready] Non-Mutated {len(self.group_0)} || Mutated {len(self.group_1)}")
+        print(f"[Dataset Ready] Non-Mutated {len(self.group_0)} || Mutated {len(self.group_1)}")
 
     def len(self):
         return len(self.group_0) + len(self.group_1)

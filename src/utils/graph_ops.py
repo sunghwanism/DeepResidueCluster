@@ -6,12 +6,12 @@ import pandas as pd
 import networkx as nx
 import numpy as np
 from typing import List, Dict, Optional, Tuple, Any, Union
+
 from torch_geometric.data import Data
 from torch_geometric.utils import from_networkx
-from src.utils.sub_ops import encode_features
-from src.utils.logger import get_logger
 
-logger = get_logger(__name__)
+from src.utils.sub_ops import encode_features
+
 
 def nx_to_pyg_data(
     G: nx.Graph,
@@ -47,7 +47,7 @@ def nx_to_pyg_data(
         if not all(node in node_features_df.index for node in nodes):
              # Identify missing nodes for better error reporting
             missing = [node for node in nodes if node not in node_features_df.index]
-            logger.error(f"Missing {len(missing)} nodes in features DF. First 5: {missing[:5]}")
+            print(f"[ERROR] Missing {len(missing)} nodes in features DF. First 5: {missing[:5]}")
             raise ValueError("Error: Not all nodes in the graph are present in the node_features_df index.")
         
         df_ordered = node_features_df.loc[nodes].copy()
@@ -130,7 +130,7 @@ def merge_graph_attributes(rawG: nx.Graph, config: Any) -> nx.Graph:
     """
     PATH = config.GraphAtt_PATH
     if not os.path.exists(PATH):
-        logger.warning(f"Graph Attribute Path does not exist: {PATH}")
+        print(f"[WARNING] Graph Attribute Path does not exist: {PATH}")
         return rawG
 
     files = os.listdir(PATH)
@@ -157,7 +157,7 @@ def merge_graph_attributes(rawG: nx.Graph, config: Any) -> nx.Graph:
                     attG = load_graph(os.path.join(PATH, pkl))
                     attG = attG.subgraph(raw_nodes).copy()
                 except Exception as e:
-                    logger.error(f"Error loading {pkl}: {e}")
+                    print(f"[ERROR] Error loading {pkl}: {e}")
                     continue
                 
                 # Validation
@@ -168,9 +168,9 @@ def merge_graph_attributes(rawG: nx.Graph, config: Any) -> nx.Graph:
                         rawG.nodes[node].update(attrs)
                     
                     filtered_features.append(display_name)
-                    logger.info(f"Successfully merged feature: [{display_name}] from {pkl}")
+                    print(f"Successfully merged feature: [{display_name}] from {pkl}")
                 else:
-                    logger.warning(f"Validation Failed for {pkl}: Node mismatch (Count or IDs)")
+                    print(f"[WARNING] Validation Failed for {pkl}: Node mismatch (Count or IDs)")
 
     # Ensure uniqueness
     filtered_features = list(set(filtered_features))
@@ -180,7 +180,7 @@ def merge_graph_attributes(rawG: nx.Graph, config: Any) -> nx.Graph:
     for feat in filtered_features:
         missing_nodes = [n for n, d in finalG.nodes(data=True) if feat not in d]
         if missing_nodes:
-            logger.error(f"CRITICAL: Feature '{feat}' is missing in {len(missing_nodes)} nodes! Dropping.")
+            print(f"[ERROR] CRITICAL: Feature '{feat}' is missing in {len(missing_nodes)} nodes! Dropping.")
             # Logic to actually drop could be added here, but following original flow usually implies hard exit or warn
 
     if getattr(config, 'split_to_subgraphs', False):
@@ -196,7 +196,7 @@ def merge_graph_attributes(rawG: nx.Graph, config: Any) -> nx.Graph:
                     val = mut_mapping.get(node, 0)
                     finalG.nodes[node]['is_mut'] = val
          except Exception as e:
-             logger.warning(f"Failed to load mutation mappin: {e}")
+             print(f"[WARNING] Failed to load mutation mappin: {e}")
 
     return finalG
 
@@ -239,10 +239,10 @@ def normalize_node_attribute(G: nx.Graph, all_node_att: List[str], att_name_list
             success_target.append(att_name)
         
         except Exception as e:
-            logger.error(f"Failed to normalize attribute '{att_name} | using {method}': {str(e)}")
+            print(f"[ERROR] Failed to normalize attribute '{att_name} | using {method}': {str(e)}")
             continue
 
-    logger.info(f"Attributes '{success_target}' normalized using {method}.")
+    print(f"Attributes '{success_target}' normalized using {method}.")
     return graph
 
 

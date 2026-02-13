@@ -9,7 +9,6 @@ from torch_geometric.data import DataLoader, Data, Batch
 from torch_geometric.loader import NeighborLoader
 from sklearn.model_selection import train_test_split
 
-from src.utils.logger import get_logger
 from src.utils.graph_ops import (
     load_graph, 
     merge_graph_attributes, 
@@ -18,9 +17,6 @@ from src.utils.graph_ops import (
 )
 from src.data.transforms import MutationSubgraphAugment, AddConstantFeature
 from src.data.datasets import GraphPairDataset, NeighborSubgraphSampler, find_attribute_index
-
-
-logger = get_logger(__name__)
 
 class DeepResidueDataModule:
     """
@@ -36,7 +32,7 @@ class DeepResidueDataModule:
         """
         Loads data, processes it, and splits it.
         """
-        logger.info("Setting up DataModule...")
+        print("Setting up DataModule...")
         
         # 1. Load and Preprocess Graph
         graph = self._load_and_process_graph()
@@ -58,7 +54,7 @@ class DeepResidueDataModule:
              train_comps = self._augment_graph_topology(train_comps)
 
         # 6. Convert to PyG Data
-        logger.info("Converting to PyG Data objects...")
+        print("Converting to PyG Data objects...")
         self.train_data = self._convert_to_pyg(train_comps, "Train", df, final_table_features)
         self.val_data = self._convert_to_pyg(val_comps, "Val", df, final_table_features)
         self.test_data = self._convert_to_pyg(test_comps, "Test", df, final_table_features)
@@ -66,7 +62,7 @@ class DeepResidueDataModule:
         # 7. Feature Augmentation (e.g. Constant Feature)
         self._apply_feature_augmentation()
         
-        logger.info(f"Data Setup Complete. Train: {len(self.train_data)}, Val: {len(self.val_data)}, Test: {len(self.test_data)}")
+        print(f"Data Setup Complete. Train: {len(self.train_data)}, Val: {len(self.val_data)}, Test: {len(self.test_data)}")
 
     def train_dataloader(self) -> DataLoader:
         if self.config.model == 'DGI':
@@ -90,7 +86,7 @@ class DeepResidueDataModule:
     def _load_and_process_graph(self) -> nx.Graph:
         path = self.config.Graph_PATH
         if not os.path.exists(path):
-            logger.info("Graph path not found, attempting to merge attributes...")
+            print("Graph path not found, attempting to merge attributes...")
             raise FileNotFoundError(f"Graph file not found at {path}")
         
         with open(path, 'rb') as f:
@@ -102,7 +98,7 @@ class DeepResidueDataModule:
             self.config.node_att_norm_target, 
             method=self.config.node_att_norm_method
         )
-        logger.info("Graph loaded and normalized.")
+        print("Graph loaded and normalized.")
         return graph
 
     def _load_table_features(self) -> Tuple[Optional[pd.DataFrame], List[str]]:
@@ -135,7 +131,7 @@ class DeepResidueDataModule:
             final_table_features = list(self.config.table_features) # Copy
             
             if 'ptms_mapped' in self.config.table_features:
-                logger.info("Processing PTMs features globally...")
+                print("Processing PTMs features globally...")
                 df, ptm_cols = process_ptms(df)
                 final_table_features = [f for f in final_table_features if f != 'ptms_mapped']
                 final_table_features.extend(ptm_cols)
@@ -148,11 +144,11 @@ class DeepResidueDataModule:
                 # But we need to keep features available specifically
                 pass 
                 
-            logger.info("Table Features loaded successfully")
+            print("Table Features loaded successfully")
             return df, final_table_features
             
         except Exception as e:
-            logger.warning(f"Failed to load CSV features: {e}")
+            print(f"[WARNING] Failed to load CSV features: {e}")
             return None, self.config.table_features
 
     def _split_to_components(self, graph: nx.Graph) -> List[nx.Graph]:
@@ -164,7 +160,7 @@ class DeepResidueDataModule:
             for c in nx.connected_components(graph) 
             if min_size <= len(c) <= max_size
         ]
-        logger.info(f"Total Components found and filtered: {len(components)}")
+        print(f"Total Components found and filtered: {len(components)}")
         return components
 
     def _split_dataset(self, components: List[nx.Graph]) -> Tuple[List[nx.Graph], List[nx.Graph], List[nx.Graph]]:
@@ -174,7 +170,7 @@ class DeepResidueDataModule:
         # Check for pre-saved splits
         train_path = f"{self.config.project_name}_train.pkl"
         if os.path.exists(train_path):
-             logger.info("Loading existing splits...")
+             print("Loading existing splits...")
              def load(name):
                  with open(f"{self.config.project_name}_{name}.pkl", 'rb') as f:
                      return pickle.load(f)
@@ -197,7 +193,7 @@ class DeepResidueDataModule:
         return train, val, test
 
     def _augment_graph_topology(self, components: List[nx.Graph]) -> List[nx.Graph]:
-        logger.info("[DataAugmentation] Augmenting Training Set...")
+        print("[DataAugmentation] Augmenting Training Set...")
         augmentor = MutationSubgraphAugment(
             attribute='is_mut',
             steps=self.config.aug_subgraph_steps,
@@ -210,7 +206,7 @@ class DeepResidueDataModule:
             aug_list = augmentor(comp)
             augmented_comps.extend(aug_list)
             
-        logger.info(f"Augmentation result: {len(components)} -> {len(augmented_comps)}")
+        print(f"Augmentation result: {len(components)} -> {len(augmented_comps)}")
         return augmented_comps
 
     def _convert_to_pyg(self, comp_list, split_name, df, final_features) -> List[Data]:
@@ -235,7 +231,7 @@ class DeepResidueDataModule:
              aug = AddConstantFeature()
              for data in self.train_data + self.val_data + self.test_data:
                  aug(data)
-             logger.info("Applied Constant Feature Augmentation")
+             print("Applied Constant Feature Augmentation")
 
     def _get_standard_loader(self, data_list, shuffle):
         if self.config.num_sample_nodes is None:
@@ -269,7 +265,7 @@ class DeepResidueDataModule:
         attr_idx = find_attribute_index(self.config, target_attr)
         if attr_idx is None:
              attr_idx = 0
-             logger.warning(f"Attribute {target_attr} not found, using index 0")
+             print(f"[WARNING] Attribute {target_attr} not found, using index 0")
 
         dataset = GraphPairDataset(
             data_list, 

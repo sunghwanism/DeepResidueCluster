@@ -1,7 +1,7 @@
 
 import os
 import sys
-import logging
+
 import argparse
 import warnings
 from pprint import pprint
@@ -13,14 +13,10 @@ if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
 # Import new modules
-from src.utils.logger import get_logger, setup_logging
 from src.data.datamodule import DeepResidueDataModule
 from src.utils.functions import init_wandb, LoadConfig, set_seed
 
 warnings.filterwarnings("ignore")
-# Setup logging early
-setup_logging(level=logging.INFO)
-logger = get_logger("TrainScript")
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run DGI model')
@@ -43,9 +39,9 @@ def main(args):
     set_seed(config.SEED)
     
     # 2. Logger Setup
-    logger.info("============================")
-    logger.info("Initializing Training Pipeline")
-    logger.info("============================")
+    print("============================")
+    print("Initializing Training Pipeline")
+    print("============================")
     
     # 3. WandB Setup
     run_wandb = init_wandb(config)
@@ -58,10 +54,10 @@ def main(args):
     valLoader = dm.val_dataloader()
     testLoader = dm.test_dataloader()
 
-    logger.info("##################")
-    logger.info("Finish Loading DataLoader")
-    logger.info(f"Train Batches: {len(trainLoader)}")
-    logger.info("##################")
+    print("##################")
+    print("Finish Loading DataLoader")
+    print(f"Train Batches: {len(trainLoader)}")
+    print("##################")
     
     # pprint(vars(config))
 
@@ -74,7 +70,7 @@ def main(args):
         run_training(config, trainLoader, valLoader, testLoader, run_wandb)
 
     else:
-        logger.error(f"Unknown model: {config.model}")
+        print(f"[ERROR] Unknown model: {config.model}")
 
     # Finish wandb run
     if run_wandb:

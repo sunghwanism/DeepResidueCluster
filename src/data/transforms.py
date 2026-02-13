@@ -5,9 +5,7 @@ import random
 from typing import List, Optional, Union, Set, Any
 from networkx.algorithms import isomorphism
 from torch_geometric.data import Data
-from src.utils.logger import get_logger
 
-logger = get_logger(__name__)
 
 class GraphTransform:
     """Base class for graph transformations."""
