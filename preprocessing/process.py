@@ -11,8 +11,8 @@ import torch
 from torch_geometric.loader import DataLoader, NeighborLoader
 from sklearn.model_selection import train_test_split
 
-from utils_old.graph_utils import nx_to_pyg_data, loadGraph, merge_graph_attributes, filtered_only_attributes, get_sample, normalize_node_attribute
-from utils_old.table_utils import make_bin_cols, scaling_and_fillnafeature, process_ptms
+from src.utils.graph_ops import nx_to_pyg_data, load_graph, merge_graph_attributes, filtered_only_attributes, get_sample, normalize_node_attribute
+from src.utils.sub_ops import make_bin_cols, scaling_and_fillna_feature, process_ptms
 from data.Augmentation import mutation_anchored_subgraphs
 
 def LoadDataset(config, only_test=False, clear_att_in_orginG=False):

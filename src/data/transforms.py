@@ -1,10 +1,8 @@
 
-import torch
 import networkx as nx
 import random
 from typing import List, Optional, Union, Set, Any
 from networkx.algorithms import isomorphism
-from torch_geometric.data import Data
 
 
 class GraphTransform:
@@ -16,7 +14,9 @@ class AddConstantFeature(GraphTransform):
     """
     Adds a constant feature (1.0) to node features.
     """
-    def __call__(self, data: Data) -> Data:
+    def __call__(self, data: "Data") -> "Data":
+        import torch
+        from torch_geometric.data import Data
         num_nodes = data.num_nodes
         constant_x = torch.ones((num_nodes, 1), dtype=torch.float)
         

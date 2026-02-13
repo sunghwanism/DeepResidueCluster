@@ -1,12 +1,9 @@
 
 import os
 import pickle
-import torch
 import pandas as pd
 import networkx as nx
 from typing import Optional, Tuple, List, Any, Union
-from torch_geometric.data import DataLoader, Data, Batch
-from torch_geometric.loader import NeighborLoader
 from sklearn.model_selection import train_test_split
 
 from src.utils.graph_ops import (
@@ -24,9 +21,9 @@ class DeepResidueDataModule:
     """
     def __init__(self, config: Any):
         self.config = config
-        self.train_data: List[Data] = []
-        self.val_data: List[Data] = []
-        self.test_data: List[Data] = []
+        self.train_data: List["Data"] = []
+        self.val_data: List["Data"] = []
+        self.test_data: List["Data"] = []
         
     def setup(self, stage: Optional[str] = None):
         """
@@ -64,7 +61,8 @@ class DeepResidueDataModule:
         
         print(f"Data Setup Complete. Train: {len(self.train_data)}, Val: {len(self.val_data)}, Test: {len(self.test_data)}")
 
-    def train_dataloader(self) -> DataLoader:
+    def train_dataloader(self) -> "DataLoader":
+        from torch_geometric.data import DataLoader
         if self.config.model == 'DGI':
              return self._get_standard_loader(self.train_data, shuffle=True)
         elif self.config.model == 'pchk':
@@ -73,12 +71,14 @@ class DeepResidueDataModule:
         else:
              return self._get_standard_loader(self.train_data, shuffle=True)
 
-    def val_dataloader(self) -> DataLoader:
+    def val_dataloader(self) -> "DataLoader":
+        from torch_geometric.data import DataLoader
         if self.config.model == 'pchk':
              return self._get_contrastive_loader(self.val_data, shuffle=False)
         return self._get_standard_loader(self.val_data, shuffle=False)
 
-    def test_dataloader(self) -> DataLoader:
+    def test_dataloader(self) -> "DataLoader":
+        from torch_geometric.data import DataLoader
         if self.config.model == 'pchk':
               return self._get_contrastive_loader(self.test_data, shuffle=False)
         return self._get_standard_loader(self.test_data, shuffle=False)
@@ -209,7 +209,7 @@ class DeepResidueDataModule:
         print(f"Augmentation result: {len(components)} -> {len(augmented_comps)}")
         return augmented_comps
 
-    def _convert_to_pyg(self, comp_list, split_name, df, final_features) -> List[Data]:
+    def _convert_to_pyg(self, comp_list, split_name, df, final_features) -> List["Data"]:
         pyg_list = []
         for i, comp in enumerate(comp_list):
             pyg_obj = nx_to_pyg_data(
@@ -234,6 +234,8 @@ class DeepResidueDataModule:
              print("Applied Constant Feature Augmentation")
 
     def _get_standard_loader(self, data_list, shuffle):
+        from torch_geometric.data import DataLoader, Batch
+        from torch_geometric.loader import NeighborLoader
         if self.config.num_sample_nodes is None:
             return DataLoader(
                 data_list, 
@@ -254,6 +256,7 @@ class DeepResidueDataModule:
             )
 
     def _get_contrastive_loader(self, data_list, shuffle):
+        from torch_geometric.data import DataLoader
         # Using logic from custom GraphPairDataset
         
         transform = None

@@ -1,14 +1,10 @@
 
 import os
 import pickle
-import torch
 import pandas as pd
 import networkx as nx
 import numpy as np
 from typing import List, Dict, Optional, Tuple, Any, Union
-
-from torch_geometric.data import Data
-from torch_geometric.utils import from_networkx
 
 from src.utils.sub_ops import encode_features
 
@@ -22,11 +18,14 @@ def nx_to_pyg_data(
     add_constant_feature: bool = True,
     use_edge_weight: bool = False,
     config: Any = None
-) -> Data:
+) -> "Data":
     """
     Converts a NetworkX graph to a PyTorch Geometric Data object,
     merging features from both the graph attributes and an external DataFrame.
     """
+    import torch
+    from torch_geometric.data import Data
+    from torch_geometric.utils import from_networkx
     
     # 1. Convert graph structure and extract internal graph features
     data = from_networkx(G, group_node_attrs=graph_features)
@@ -246,7 +245,7 @@ def normalize_node_attribute(G: nx.Graph, all_node_att: List[str], att_name_list
     return graph
 
 
-def create_dgi_training_data(data):
+def create_dgi_training_data(data: "Data"):
     """
     Prepare data for DGI training by creating structures for positive and negative samples.
     
@@ -277,6 +276,7 @@ def shuffle_node_features(x):
     Returns:
         torch.Tensor: Shuffled node features
     """
+    import torch
     idx = torch.randperm(x.size(0))
     return x[idx]
 

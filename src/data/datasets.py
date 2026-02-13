@@ -1,11 +1,9 @@
 
 import os
 import random
-import torch
 import glob
 from typing import List, Tuple, Optional, Any
-from torch_geometric.data import Dataset, Batch, Data
-from torch_geometric.loader import DataLoader, NeighborLoader as PyGNeighborLoader
+from torch_geometric.data import Dataset, DataLoader
 
 from src.utils.sub_ops import MAPPING_CONFIG
 from src.data.transforms import GraphTransform
@@ -24,7 +22,7 @@ class GraphPairDataset(Dataset):
        - Negative Pair (Label 0): (0, 1) OR (1, 0) -> Different semantic content.
     """
 
-    def __init__(self, dataset: List[Data], attribute_index: int = 0, transform=None, pre_transform=None):
+    def __init__(self, dataset: List["Data"], attribute_index: int = 0, transform=None, pre_transform=None):
         super().__init__(None, transform, pre_transform)
         
         self.group_0 = []
@@ -65,12 +63,14 @@ class GraphPairDataset(Dataset):
             else:
                 graph_a, graph_b = self._sample_same_group(self.group_1)
             
+            import torch
             label = torch.tensor([1.0], dtype=torch.float)
             
         else:
             graph_a = random.choice(self.group_0)
             graph_b = random.choice(self.group_1)
             
+            import torch
             label = torch.tensor([0.0], dtype=torch.float)
 
         if self.transform is not None:
@@ -87,6 +87,8 @@ class GraphPairDataset(Dataset):
         return random.sample(group_list, 2)
 
 def collate_pairs(batch):
+    import torch
+    from torch_geometric.data import Batch
     graph_a_list = [item[0] for item in batch]
     graph_b_list = [item[1] for item in batch]
     labels = [item[2] for item in batch]
@@ -104,7 +106,8 @@ class NeighborSubgraphSampler:
     def __init__(self, sizes: List[int]):
         self.sizes = sizes
 
-    def __call__(self, data: Data) -> Data:
+    def __call__(self, data: "Data") -> "Data":
+        from torch_geometric.loader import NeighborLoader as PyGNeighborLoader
         loader = PyGNeighborLoader(
             data,
             num_neighbors=self.sizes,
