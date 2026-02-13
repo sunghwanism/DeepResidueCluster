@@ -23,6 +23,7 @@ dependencies = [
     "matplotlib",
     "statsmodels",
     "bioservices",
+    "nx-parallel==0.3",
 ]
 
 [tool.setuptools.packages.find]
