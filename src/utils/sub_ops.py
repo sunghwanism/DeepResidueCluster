@@ -2,13 +2,9 @@
 import os
 import ast
 import json
-import logging
 import numpy as np
 import pandas as pd
 from typing import List, Dict, Tuple, Optional, Any, Set
-from src.utils.logger import get_logger
-
-logger = get_logger(__name__)
 
 # ==========================================
 # Feature Configuration
@@ -82,13 +78,13 @@ def encode_features(df: pd.DataFrame, use_features: List[str], mapping_dir: str)
             result_df[feat] = result_df[feat].map({'S': 1})
             result_df[feat].fillna(0, inplace=True)
             numerical_feat.append(feat)
-            logger.debug("dssp_bend: fillna(0) and map S to 1")
+            print("dssp_bend: fillna(0) and map S to 1")
 
         elif feat == 'dssp_chirality':
             result_df[feat] = result_df[feat].map({'-': 1, '+': 2})
             result_df[feat].fillna(0, inplace=True)
             numerical_feat.append(feat)
-            logger.debug("dssp_chirality: fillna(0) and map -/+ to 1/2")
+            print("dssp_chirality: fillna(0) and map -/+ to 1/2")
 
         elif feat == 'ptms_mapped':
             result_df, new_cols = process_ptms(result_df)
@@ -109,7 +105,7 @@ def process_angular_feature(df: pd.DataFrame, feat: str) -> Tuple[pd.DataFrame, 
     df[f'{feat}_sin'].fillna(0, inplace=True)
     df[f'{feat}_cos'].fillna(0, inplace=True)
     
-    logger.debug(f"Processing {feat}: Sin/Cos conversion & {col_na} created")
+    print(f"Processing {feat}: Sin/Cos conversion & {col_na} created")
     return df, [col_na, f'{feat}_sin', f'{feat}_cos']
 
 
@@ -122,7 +118,7 @@ def process_numeric_na_feature(df: pd.DataFrame, feat: str, fill_val: int) -> Tu
     df[suffix] = df[feat].isna().astype('int8')
     df[feat].fillna(fill_val, inplace=True)
     
-    logger.debug(f"Processing {feat}: fillna({fill_val}) & {suffix}")
+    print(f"Processing {feat}: fillna({fill_val}) & {suffix}")
     return df, [suffix, feat] # Return both indicator and filled original column
 
 
@@ -149,7 +145,7 @@ def process_ptms(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
     new_cols.append('ptm_is_na')
     
     df.drop(columns=['ptms_mapped'], inplace=True)
-    logger.debug(f"Processing ptms_mapped: One-hot encoding & ptm_is_na created")
+    print(f"Processing ptms_mapped: One-hot encoding & ptm_is_na created")
     return df, new_cols
 
 
@@ -239,6 +235,6 @@ def parse_ptm(x: Any) -> List[Any]:
         try:
             return ast.literal_eval(x)
         except (ValueError, SyntaxError):
-            logger.warning(f"Failed to parse PTM: {x}")
+            print(f"[WARNING] Failed to parse PTM: {x}")
             return []
     return x

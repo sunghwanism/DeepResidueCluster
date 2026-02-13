@@ -2,7 +2,7 @@
 import os
 import sys
 import pickle
-import logging
+
 import argparse
 import warnings
 
@@ -12,13 +12,10 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
-from src.utils.logger import get_logger, setup_logging
 from src.data.datamodule import DeepResidueDataModule
 from src.utils.functions import LoadConfig, set_seed
 
 warnings.filterwarnings("ignore")
-setup_logging(level=logging.INFO)
-logger = get_logger("RunDataScript")
 
 
 def parse_args():
@@ -48,7 +45,7 @@ def save_dataset(data_list, filepath):
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'wb') as f:
         pickle.dump(data_list, f)
-    logger.info(f"Saved {len(data_list)} graphs -> {filepath}")
+    print(f"Saved {len(data_list)} graphs -> {filepath}")
 
 
 def main(args):
@@ -62,11 +59,11 @@ def main(args):
         output_dir = os.path.join(getattr(config, 'SAVEPATH', '.'), 'data')
     os.makedirs(output_dir, exist_ok=True)
 
-    logger.info("=" * 50)
-    logger.info("Starting Dataset Preparation")
-    logger.info(f"Output directory: {output_dir}")
-    logger.info(f"use_aug: {args.use_aug}")
-    logger.info("=" * 50)
+    print("=" * 50)
+    print("Starting Dataset Preparation")
+    print(f"Output directory: {output_dir}")
+    print(f"use_aug: {args.use_aug}")
+    print("=" * 50)
 
     # 3. Build base datasets (without augmentation)
     config.use_aug = False
@@ -77,22 +74,22 @@ def main(args):
     save_dataset(dm.val_data,   os.path.join(output_dir, 'val.pkl'))
     save_dataset(dm.test_data,  os.path.join(output_dir, 'test.pkl'))
 
-    logger.info(f"Base datasets saved — Train: {len(dm.train_data)}, "
-                f"Val: {len(dm.val_data)}, Test: {len(dm.test_data)}")
+    print(f"Base datasets saved — Train: {len(dm.train_data)}, "
+          f"Val: {len(dm.val_data)}, Test: {len(dm.test_data)}")
 
     # 4. Build augmented train dataset (if requested)
     if args.use_aug:
-        logger.info("Building augmented training dataset...")
+        print("Building augmented training dataset...")
         config.use_aug = True
         dm_aug = DeepResidueDataModule(config)
         dm_aug.setup()
 
         save_dataset(dm_aug.train_data, os.path.join(output_dir, 'train_aug.pkl'))
-        logger.info(f"Augmented train dataset saved — "
-                    f"Train(aug): {len(dm_aug.train_data)} "
-                    f"(base: {len(dm.train_data)})")
+        print(f"Augmented train dataset saved — "
+              f"Train(aug): {len(dm_aug.train_data)} "
+              f"(base: {len(dm.train_data)})")
 
-    logger.info("Dataset preparation complete.")
+    print("Dataset preparation complete.")
 
 
 if __name__ == '__main__':

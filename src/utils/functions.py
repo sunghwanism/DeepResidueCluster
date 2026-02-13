@@ -1,5 +1,3 @@
-import gc
-import wandb
 import os
 import yaml
 import argparse
@@ -7,13 +5,12 @@ import argparse
 import random
 import numpy as np
 
-import torch
-
 import warnings
 warnings.filterwarnings("ignore")
 
 
 def init_wandb(config):
+    import wandb
     if config.nowandb:
         print("Do Not Use Wandb")
         return None
@@ -79,10 +76,13 @@ def print_time(training_time):
     return formatted_time
 
 def clean_the_memory():
+    import gc
+    import torch
     gc.collect()
     torch.cuda.empty_cache()
 
 def set_seed(seed):
+    import torch
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
