@@ -3,12 +3,15 @@ import ast
 import networkx as nx
 import matplotlib.patches as mpatches
 
-from collections import Counter
-import matplotlib.cm as cm
 import numpy as np
+from collections import Counter
 
+import seaborn as sns
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
+from scipy import stats
+from statsmodels.stats.multitest import multipletests
 
 
 def plot_uniprot_counts(counts_dict, top_n=20, saveFileName=None):
@@ -118,3 +121,40 @@ def pathogenicity_graph_viz(G, df, gene_dict, min_prot=3, limit_n_clusters=None,
             if saveFileName:
                 plt.savefig(f'{saveFileName}_{cluster_id}.png')
             plt.show()
+
+
+def plot_topological_analysis(df, features, target):
+    stats_results = []
+    
+    for feature in features:
+        temp_df = df[[feature, target]].dropna()
+        x, y = temp_df[feature], temp_df[target]
+        slope, intercept, r_value, p_value, _ = stats.linregress(x, y)
+        stats_results.append({'feature': feature, 'r': r_value, 'p': p_value, 
+                              'slope': slope, 'intercept': intercept, 'x': x, 'y': y})
+
+    fig = plt.figure(figsize=(12, 6))
+    gs = fig.add_gridspec(2, 6)
+    axes = [fig.add_subplot(gs[0, 0:2]), fig.add_subplot(gs[0, 2:4]), fig.add_subplot(gs[0, 4:6]),
+            fig.add_subplot(gs[1, 1:3]), fig.add_subplot(gs[1, 3:5])]
+    
+    for i, res in enumerate(stats_results):
+        ax = axes[i]
+        x, y = res['x'], res['y']
+        
+        sns.scatterplot(x=x, y=y, ax=ax, alpha=0.4, edgecolor=None, color='royalblue')
+        line = res['slope'] * x + res['intercept']
+        ax.plot(x, line, color='red', linewidth=1.5)
+
+        stats_text = (f"$r$ = {res['r']:.3f}\n"
+                      f"$p$ = {res['p']:.3e}")
+        
+        props = dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='lightgrey')
+        ax.text(0.95, 0.95, stats_text, transform=ax.transAxes, fontsize=8,
+                verticalalignment='top', horizontalalignment='right', bbox=props)
+        
+        ax.set_title(f"{target} vs {res['feature'].upper()}", fontsize=8, fontweight='bold')
+        ax.grid(True, linestyle=':', alpha=0.6)
+
+    plt.tight_layout()  
+    plt.show()
