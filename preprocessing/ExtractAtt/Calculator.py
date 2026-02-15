@@ -80,8 +80,7 @@ def get_k_core(G):
     
     return G, max_k
 
-def get_betweenness(G, device, param):
-    n_jobs = os.cpu_count() if os.cpu_count() is not None else 1
+def get_betweenness(G, device, param, n_jobs=-1):
     if device == 'cpu':
         print(f"Using {n_jobs} CPU cores")
 
@@ -276,8 +275,7 @@ def get_louvain_comm(G, params):
             
     return G
 
-def get_shortest_path_length_per_node(G):
-    n_jobs = os.cpu_count() or 1
+def get_shortest_path_length_per_node(G, n_jobs=-1):
     nodes = sorted(G.nodes(), key=lambda x: G.degree(x), reverse=True)
     # chunksize = 1
     chunksize = max(1, len(nodes) // (n_jobs * 8) or 1)
@@ -306,9 +304,7 @@ def get_local_efficiency(G):
             local_efficiency = nx.local_efficiency(G)
     return local_efficiency
     
-def get_edge_betweenness_centrality(G, params=None):
-    
-    n_jobs = os.cpu_count() if os.cpu_count() is not None else -1
+def get_edge_betweenness_centrality(G, params=None, n_jobs=-1):
 
     if params is None:
         params = {}
@@ -412,7 +408,7 @@ def get_pagerank(G, params):
     nx.set_node_attributes(G, pagerank, 'pagerank')
     return G
 
-def calcuator(G, config, device, centrality_measures, index=None):
+def calcuator(G, config, device, centrality_measures, index=None, n_jobs=-1):
     if index is None:
         index = ''
     else:
@@ -465,7 +461,7 @@ def calcuator(G, config, device, centrality_measures, index=None):
             
         elif measure == 'betweenness':
             param = centrality_measures[measure]
-            G = get_betweenness(copyG, device, param)
+            G = get_betweenness(copyG, device, param, n_jobs=n_jobs)
             save_graph(G, config.savepath, measure)
             
         elif measure == 'closeness':
@@ -490,7 +486,7 @@ def calcuator(G, config, device, centrality_measures, index=None):
             
         elif measure == 'articulation_point':
             G = get_articulation_points(copyG)
-            num_articulation_points = calc_num_articulation_points(copyG, n_jobs=-1)
+            num_articulation_points = calc_num_articulation_points(copyG, n_jobs=n_jobs)
             print(f"[Number of Articulation Points]: {num_articulation_points}")
             new_results.append({'Measure': 'articulation_points_num' + f"{index}", 'Value': num_articulation_points})
             save_graph(G, config.savepath, measure)
@@ -533,7 +529,7 @@ def calcuator(G, config, device, centrality_measures, index=None):
             
         elif measure == 'edge_betweenness':
             param = centrality_measures[measure]
-            G = get_edge_betweenness_centrality(copyG, param)
+            G = get_edge_betweenness_centrality(copyG, param, n_jobs)
             save_graph(G, config.savepath, measure)
             
         elif measure == 'att_assortativity':
@@ -545,7 +541,7 @@ def calcuator(G, config, device, centrality_measures, index=None):
                 new_results.append({'Measure': f"att_assortativity_{att}" + f"{index}", 'Value': r})
         
         elif measure == 'shortest_path_length_per_node':
-            G = get_shortest_path_length_per_node(copyG)
+            G = get_shortest_path_length_per_node(copyG, n_jobs)
             save_graph(G, config.savepath, measure)
             
         elif measure == 'global_efficiency':
